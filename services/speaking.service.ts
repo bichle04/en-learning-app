@@ -80,5 +80,122 @@ export const speakingService = {
     }
     
     return data;
+  },
+
+  async getSpeakingTopics() {
+    const { data, error } = await supabase
+      .from('speaking_parts')
+      .select('*')
+      .order('part', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching speaking topics:', error);
+      throw error;
+    }
+
+    return data;
+  },
+
+  async getUserStats(userId: string) {
+    // Fetch all history to calculate stats
+    const history = await this.getAllHistory(userId);
+    
+    // Fetch user activity for study time and streak
+    const { data: activityData, error: activityError } = await supabase
+      .from('user_activity')
+      .select('*')
+      .eq('user_id', userId)
+      .order('activity_date', { ascending: false });
+
+    if (activityError) {
+      console.error('Error fetching user activity:', activityError);
+    }
+
+    // Calculate basic stats
+    const totalTests = history.length;
+    
+    // Calculate average score
+    const scores = history
+      .map(h => Number(h.overall_score) || 0)
+      .filter(s => s > 0);
+    const averageScore = scores.length > 0 
+      ? scores.reduce((a, b) => a + b, 0) / scores.length 
+      : 0;
+
+    // Calculate study time (minutes) from user_activity
+    const studyTime = activityData?.reduce((total, curr) => total + (curr.study_time_minutes || 0), 0) || 0;
+
+    // Calculate streak
+    let streak = 0;
+    if (activityData && activityData.length > 0) {
+        const today = new Date().toISOString().split('T')[0];
+        const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+        
+        // Check if there is activity today or yesterday to start the streak
+        const lastActivityDate = activityData[0].activity_date;
+        
+        if (lastActivityDate === today || lastActivityDate === yesterday) {
+            streak = 1;
+            let currentDate = new Date(lastActivityDate);
+            
+            for (let i = 1; i < activityData.length; i++) {
+                const prevDate = new Date(currentDate);
+                prevDate.setDate(prevDate.getDate() - 1);
+                const prevDateString = prevDate.toISOString().split('T')[0];
+                
+                if (activityData[i].activity_date === prevDateString) {
+                    streak++;
+                    currentDate = prevDate;
+                } else {
+                    break;
+                }
+            }
+        }
+    }
+
+    // Recent scores for chart (last 6)
+    const recentScores = scores.slice(0, 6).reverse();
+
+    // Calculate skills average
+    let fluencyTotal = 0, lexicalTotal = 0, grammarTotal = 0, pronunciationTotal = 0;
+    let count = 0;
+
+    history.forEach(h => {
+        const details = h.type === 'practice' ? h.details : (h.data?.[0] || {});
+        if (details) {
+            fluencyTotal += details.fluency || 0;
+            lexicalTotal += details.lexical || 0;
+            grammarTotal += details.grammar || 0;
+            pronunciationTotal += details.pronunciation || 0;
+            if (details.fluency || details.lexical || details.grammar || details.pronunciation) {
+                count++;
+            }
+        }
+    });
+
+    const skills = [
+        { name: "Fluency", score: count ? fluencyTotal / count : 0, color: "#4CAF50" },
+        { name: "Lexical", score: count ? lexicalTotal / count : 0, color: "#2196F3" },
+        { name: "Grammar", score: count ? grammarTotal / count : 0, color: "#FF9800" },
+        { name: "Pronunciation", score: count ? pronunciationTotal / count : 0, color: "#9C27B0" },
+    ];
+
+    // Recent activity
+    const recentActivity = history.slice(0, 3).map(h => ({
+        id: h.id,
+        title: h.type === 'test' ? 'Full Speaking Test' : (h.speaking_parts?.title || 'Speaking Practice'),
+        time: new Date(h.created_at).toLocaleDateString('vi-VN'),
+        score: Number(h.overall_score) || 0
+    }));
+
+    return {
+        totalTests,
+        averageScore: Number(averageScore.toFixed(1)),
+        studyTime,
+        streak,
+        recentScores,
+        skills,
+        recentActivity
+    };
   }
 };

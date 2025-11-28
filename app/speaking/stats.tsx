@@ -1,7 +1,7 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { Activity, Award, Calendar, ChevronLeft, Clock, TrendingUp } from "lucide-react-native";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   Dimensions,
   ScrollView,
@@ -9,34 +9,56 @@ import {
   Text,
   TouchableOpacity,
   View,
-  StatusBar
+  StatusBar,
+  ActivityIndicator
 } from "react-native";
 import { LineChart } from "react-native-chart-kit";
+import { useAuth } from "../../contexts/AuthContext";
+import { speakingService } from "../../services/speaking.service";
 
 const { width } = Dimensions.get("window");
 
-// Mock Data
-const STATS_DATA = {
-  totalTests: 24,
-  averageScore: 7.2,
-  studyTime: 320, // minutes
-  streak: 5,
-  recentScores: [6.0, 6.5, 7.0, 6.5, 7.5, 8.0],
-  skills: [
-    { name: "Fluency", score: 7.5, color: "#4CAF50" },
-    { name: "Lexical", score: 6.8, color: "#2196F3" },
-    { name: "Grammar", score: 6.5, color: "#FF9800" },
-    { name: "Pronunciation", score: 8.0, color: "#9C27B0" },
-  ],
-  recentActivity: [
-    { id: 1, title: "Practice: Hometown", time: "2 hours ago", score: 7.5 },
-    { id: 2, title: "Full Test #05", time: "Yesterday", score: 7.0 },
-    { id: 3, title: "Practice: Hobbies", time: "2 days ago", score: 8.0 },
-  ]
-};
-
 export default function SpeakingStatsScreen() {
   const router = useRouter();
+  const { user } = useAuth();
+  const [stats, setStats] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (user) {
+      fetchStats();
+    }
+  }, [user]);
+
+  const fetchStats = async () => {
+    try {
+      setLoading(true);
+      if (user) {
+        const data = await speakingService.getUserStats(user.id);
+        setStats(data);
+      }
+    } catch (error) {
+      console.error("Error fetching stats:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color="#1E90FF" />
+      </View>
+    );
+  }
+
+  if (!stats) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <Text>Không thể tải dữ liệu thống kê</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -63,7 +85,7 @@ export default function SpeakingStatsScreen() {
             <View style={[styles.iconBg, { backgroundColor: "#E3F2FD" }]}>
               <Activity size={20} color="#1E90FF" />
             </View>
-            <Text style={styles.statValue}>{STATS_DATA.totalTests}</Text>
+            <Text style={styles.statValue}>{stats.totalTests}</Text>
             <Text style={styles.statLabel}>Bài đã làm</Text>
           </View>
           
@@ -71,7 +93,7 @@ export default function SpeakingStatsScreen() {
             <View style={[styles.iconBg, { backgroundColor: "#E8F5E9" }]}>
               <Award size={20} color="#4CAF50" />
             </View>
-            <Text style={styles.statValue}>{STATS_DATA.averageScore}</Text>
+            <Text style={styles.statValue}>{stats.averageScore}</Text>
             <Text style={styles.statLabel}>Điểm TB</Text>
           </View>
 
@@ -79,7 +101,7 @@ export default function SpeakingStatsScreen() {
             <View style={[styles.iconBg, { backgroundColor: "#FFF3E0" }]}>
               <Clock size={20} color="#FF9800" />
             </View>
-            <Text style={styles.statValue}>{Math.round(STATS_DATA.studyTime / 60)}h</Text>
+            <Text style={styles.statValue}>{Math.round(stats.studyTime / 60)}h</Text>
             <Text style={styles.statLabel}>Luyện tập</Text>
           </View>
 
@@ -87,48 +109,50 @@ export default function SpeakingStatsScreen() {
             <View style={[styles.iconBg, { backgroundColor: "#F3E5F5" }]}>
               <TrendingUp size={20} color="#9C27B0" />
             </View>
-            <Text style={styles.statValue}>{STATS_DATA.streak}</Text>
+            <Text style={styles.statValue}>{stats.streak}</Text>
             <Text style={styles.statLabel}>Ngày Streak</Text>
           </View>
         </View>
 
         {/* Progress Chart */}
-        <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>Xu hướng điểm số</Text>
-          <View style={styles.chartCard}>
-            <LineChart
-              data={{
-                labels: ["T1", "T2", "T3", "T4", "T5", "T6"],
-                datasets: [{ data: STATS_DATA.recentScores }]
-              }}
-              width={width - 70}
-              height={180}
-              yAxisSuffix=""
-              chartConfig={{
-                backgroundColor: "#ffffff",
-                backgroundGradientFrom: "#ffffff",
-                backgroundGradientTo: "#ffffff",
-                decimalPlaces: 1,
-                color: (opacity = 1) => `rgba(30, 144, 255, ${opacity})`,
-                labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-                style: { borderRadius: 16 },
-                propsForDots: { r: "4", strokeWidth: "2", stroke: "#1E90FF" }
-              }}
-              bezier
-              style={styles.chart}
-            />
+        {stats.recentScores.length > 0 && (
+          <View style={styles.sectionContainer}>
+            <Text style={styles.sectionTitle}>Xu hướng điểm số</Text>
+            <View style={styles.chartCard}>
+              <LineChart
+                data={{
+                  labels: stats.recentScores.map((_: any, i: number) => `L${i + 1}`),
+                  datasets: [{ data: stats.recentScores }]
+                }}
+                width={width - 70}
+                height={180}
+                yAxisSuffix=""
+                chartConfig={{
+                  backgroundColor: "#ffffff",
+                  backgroundGradientFrom: "#ffffff",
+                  backgroundGradientTo: "#ffffff",
+                  decimalPlaces: 1,
+                  color: (opacity = 1) => `rgba(30, 144, 255, ${opacity})`,
+                  labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+                  style: { borderRadius: 16 },
+                  propsForDots: { r: "4", strokeWidth: "2", stroke: "#1E90FF" }
+                }}
+                bezier
+                style={styles.chart}
+              />
+            </View>
           </View>
-        </View>
+        )}
 
         {/* Skills Analysis */}
         <View style={styles.sectionContainer}>
           <Text style={styles.sectionTitle}>Phân tích kỹ năng</Text>
           <View style={styles.skillsCard}>
-            {STATS_DATA.skills.map((skill, index) => (
+            {stats.skills.map((skill: any, index: number) => (
               <View key={index} style={styles.skillRow}>
                 <View style={styles.skillHeader}>
                   <Text style={styles.skillName}>{skill.name}</Text>
-                  <Text style={[styles.skillScore, { color: skill.color }]}>{skill.score}</Text>
+                  <Text style={[styles.skillScore, { color: skill.color }]}>{skill.score.toFixed(1)}</Text>
                 </View>
                 <View style={styles.progressBarBg}>
                   <View 
@@ -146,20 +170,24 @@ export default function SpeakingStatsScreen() {
         {/* Recent Activity */}
         <View style={styles.sectionContainer}>
           <Text style={styles.sectionTitle}>Hoạt động gần đây</Text>
-          {STATS_DATA.recentActivity.map((activity) => (
-            <View key={activity.id} style={styles.activityCard}>
-              <View style={styles.activityIcon}>
-                <Calendar size={20} color="#7F8C8D" />
+          {stats.recentActivity.length > 0 ? (
+            stats.recentActivity.map((activity: any) => (
+              <View key={activity.id} style={styles.activityCard}>
+                <View style={styles.activityIcon}>
+                  <Calendar size={20} color="#7F8C8D" />
+                </View>
+                <View style={styles.activityContent}>
+                  <Text style={styles.activityTitle}>{activity.title}</Text>
+                  <Text style={styles.activityTime}>{activity.time}</Text>
+                </View>
+                <View style={styles.activityScore}>
+                  <Text style={styles.activityScoreText}>{activity.score.toFixed(1)}</Text>
+                </View>
               </View>
-              <View style={styles.activityContent}>
-                <Text style={styles.activityTitle}>{activity.title}</Text>
-                <Text style={styles.activityTime}>{activity.time}</Text>
-              </View>
-              <View style={styles.activityScore}>
-                <Text style={styles.activityScoreText}>{activity.score}</Text>
-              </View>
-            </View>
-          ))}
+            ))
+          ) : (
+            <Text style={{ color: '#999', textAlign: 'center', marginTop: 10 }}>Chưa có hoạt động nào</Text>
+          )}
         </View>
         
         <View style={{ height: 30 }} />
