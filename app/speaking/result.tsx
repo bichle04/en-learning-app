@@ -1,7 +1,7 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Award, BarChart3, ChevronRight } from "lucide-react-native";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
     Dimensions,
     ScrollView,
@@ -9,11 +9,12 @@ import {
     Text,
     TouchableOpacity,
     View,
+    ActivityIndicator
 } from "react-native";
+import { speakingService } from "../../services/speaking.service";
 
 const { width } = Dimensions.get("window");
 
-// TODO: Backend - Replace with actual result data from API
 interface SpeakingResult {
   overallScore: number;
   fluencyScore: number;
@@ -26,30 +27,49 @@ interface SpeakingResult {
     label: string;
   }[];
   completedDate: string;
+  title?: string;
 }
-
-// TODO: Backend - This mock data will be replaced with actual result from server
-const MOCK_RESULT: SpeakingResult = {
-  overallScore: 8.0,
-  fluencyScore: 8.0,
-  lexicalScore: 8.0,
-  grammarScore: 8.0,
-  pronunciationScore: 9.0,
-  partScores: [
-    { part: 1, score: 8.5, label: "Excellent" },
-    { part: 2, score: 8.5, label: "Excellent" },
-    { part: 3, score: 8.5, label: "Excellent" },
-  ],
-  completedDate: "25/11/2025",
-};
 
 export default function SpeakingResultScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams();
+  const { id, type } = useLocalSearchParams<{ id: string; type: 'practice' | 'test' }>();
+  const [result, setResult] = useState<SpeakingResult | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  // TODO: Backend - Get result from params or fetch from API
-  // const { testId, mode } = params;
-  const result = MOCK_RESULT;
+  useEffect(() => {
+    if (id && type) {
+      fetchResult();
+    }
+  }, [id, type]);
+
+  const fetchResult = async () => {
+    try {
+      setLoading(true);
+      const data = await speakingService.getHistoryItem(Number(id), type);
+      
+      // Map DB data to UI model
+      // Note: This mapping assumes a specific structure of the JSON data in DB.
+      // You might need to adjust this based on your actual JSON structure.
+      const details = type === 'practice' ? data.details : (data.data?.[0] || {});
+      
+      const mappedResult: SpeakingResult = {
+        overallScore: Number(data.overall_score) || 0,
+        fluencyScore: details?.fluency || 0,
+        lexicalScore: details?.lexical || 0,
+        grammarScore: details?.grammar || 0,
+        pronunciationScore: details?.pronunciation || 0,
+        partScores: [], // Populate if available in details
+        completedDate: new Date(data.created_at).toLocaleDateString('vi-VN'),
+        title: type === 'practice' ? data.speaking_parts?.title : 'Full Speaking Test'
+      };
+
+      setResult(mappedResult);
+    } catch (error) {
+      console.error("Error fetching result:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const getScoreColor = (score: number) => {
     if (score >= 8.0) return "#4CAF50"; // Green
@@ -59,13 +79,30 @@ export default function SpeakingResultScreen() {
   };
 
   const handleViewDetails = () => {
-    // TODO: Backend - Navigate to feedback screen with result ID
-    router.push("/speaking/feedback" as any);
+    // Navigate to feedback screen with result ID
+    // router.push("/speaking/feedback" as any);
+    console.log("View details");
   };
 
   const handleBackToHome = () => {
     router.replace("/(tabs)" as any);
   };
+
+  if (loading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color="#1E90FF" />
+      </View>
+    );
+  }
+
+  if (!result) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <Text>Không tìm thấy kết quả</Text>
+      </View>
+    );
+  }
 
   return (
     <LinearGradient
@@ -100,7 +137,7 @@ export default function SpeakingResultScreen() {
           <Text style={styles.congratsText}>Congratulations!</Text>
 
           {/* Test Name */}
-          <Text style={styles.testName}>has completed Speaking Test</Text>
+          <Text style={styles.testName}>{result.title || "Speaking Test Completed"}</Text>
 
           {/* Overall Score */}
           <View style={styles.overallScoreContainer}>
@@ -134,19 +171,21 @@ export default function SpeakingResultScreen() {
             />
           </View>
 
-          {/* Performance by Part */}
-          <View style={styles.performanceSection}>
-            <Text style={styles.performanceTitle}>Performance by Part</Text>
-            <View style={styles.partsContainer}>
-              {result.partScores.map((partScore) => (
-                <View key={partScore.part} style={styles.partCard}>
-                  <BarChart3 color="#1E90FF" size={20} />
-                  <Text style={styles.partNumber}>Part {partScore.part}</Text>
-                  <Text style={styles.partLabel}>{partScore.label}</Text>
+          {/* Performance by Part - Only show if we have part scores */}
+          {result.partScores.length > 0 && (
+            <View style={styles.performanceSection}>
+                <Text style={styles.performanceTitle}>Performance by Part</Text>
+                <View style={styles.partsContainer}>
+                {result.partScores.map((partScore) => (
+                    <View key={partScore.part} style={styles.partCard}>
+                    <BarChart3 color="#1E90FF" size={20} />
+                    <Text style={styles.partNumber}>Part {partScore.part}</Text>
+                    <Text style={styles.partLabel}>{partScore.label}</Text>
+                    </View>
+                ))}
                 </View>
-              ))}
             </View>
-          </View>
+          )}
 
           {/* Date */}
           <Text style={styles.dateText}>{result.completedDate}</Text>
