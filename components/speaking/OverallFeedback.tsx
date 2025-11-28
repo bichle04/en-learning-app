@@ -14,10 +14,7 @@ interface OverallFeedbackProps {
       lexical: number;
     };
     congratulations: string;
-    strengths: string[];
-    improvements: string[];
-    actionPlan: string;
-    nextSteps: string;
+    general_suggestions: string;
   };
 }
 
@@ -152,7 +149,7 @@ const OverallFeedback: React.FC<OverallFeedbackProps> = ({ data }) => {
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionIcon}>🎉</Text>
-          <Text style={styles.sectionTitle}>Chúc mừng</Text>
+          <Text style={styles.sectionTitle}>Congratulation</Text>
         </View>
         <Text style={styles.sectionContent}>{data.congratulations}</Text>
       </View>
@@ -161,46 +158,16 @@ const OverallFeedback: React.FC<OverallFeedbackProps> = ({ data }) => {
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionIcon}>💪</Text>
-          <Text style={styles.sectionTitle}>Điểm mạnh</Text>
+          <Text style={styles.sectionTitle}>Feedback</Text>
         </View>
-        {data.strengths.map((strength, index) => (
-          <View key={index} style={styles.bulletPoint}>
-            <Text style={styles.bullet}>•</Text>
-            <Text style={styles.bulletText}>{strength}</Text>
-          </View>
+        {data.general_suggestions.split(". ").map((point, index) => (
+          point.trim().length > 0 && (
+            <View key={index} style={styles.bulletPoint}>
+              <Text style={styles.bullet}>•</Text>
+              <Text style={styles.bulletText}>{point.trim()}.</Text>
+            </View>
+          )
         ))}
-      </View>
-
-      {/* Improvements */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionIcon}>📝</Text>
-          <Text style={styles.sectionTitle}>Điểm cần cải thiện</Text>
-        </View>
-        {data.improvements.map((improvement, index) => (
-          <View key={index} style={styles.bulletPoint}>
-            <Text style={styles.bullet}>•</Text>
-            <Text style={styles.bulletText}>{improvement}</Text>
-          </View>
-        ))}
-      </View>
-
-      {/* Action Plan */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionIcon}>⭐</Text>
-          <Text style={styles.sectionTitle}>Action plan</Text>
-        </View>
-        <Text style={styles.sectionContent}>{data.actionPlan}</Text>
-      </View>
-
-      {/* Next Steps */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionIcon}>🎯</Text>
-          <Text style={styles.sectionTitle}>Bước tiếp theo</Text>
-        </View>
-        <Text style={styles.sectionContent}>{data.nextSteps}</Text>
       </View>
 
       <View style={{ height: 20 }} />

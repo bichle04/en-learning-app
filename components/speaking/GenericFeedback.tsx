@@ -1,29 +1,29 @@
 import React from "react";
 import { ScrollView, Text, View } from "react-native";
 import {
-    getScoreBackgroundColor,
-    getScoreBadgeColor,
-    sharedFeedbackStyles,
+  getScoreBadgeColor,
+  getFeedbackSectionColor,
+  sharedFeedbackStyles,
+  feedbackStyles,
 } from "./shared/feedbackStyles";
 
+// Updated CriteriaDetail interface to match the mock data structure
 interface CriteriaDetail {
-  name: string;
-  score: string;
-  feedback: string;
-  errorSections?: Array<{
-    title: string;
-    errors: Array<{
-      type: string;
-      count: string;
-    }>;
-  }>;
+  criteria: string; // Updated from 'name' to 'criteria'
+  description: string; // Updated from 'feedback' to 'description'
 }
 
 interface GenericFeedbackProps {
   data: {
     score: number;
-    bandDescriptors: string[];
-    criteria: CriteriaDetail[];
+    evaluation: CriteriaDetail[]; // Updated from 'criteria' to 'evaluation'
+    errors: Array<{
+      original: string;
+      suggested: string;
+      explanation: string;
+    }>;
+    feedback: string; // Added feedback field
+    wpm?: number; // Optional field for fluency
   };
 }
 
@@ -37,7 +37,7 @@ const GenericFeedback: React.FC<GenericFeedbackProps> = ({ data }) => {
       style={sharedFeedbackStyles.contentContainer}
       showsVerticalScrollIndicator={false}
     >
-      {/* Band Descriptors */}
+      {/* Score Section */}
       <View style={sharedFeedbackStyles.bandSection}>
         <View style={sharedFeedbackStyles.bandHeader}>
           <View style={sharedFeedbackStyles.scoreCircle}>
@@ -45,71 +45,50 @@ const GenericFeedback: React.FC<GenericFeedbackProps> = ({ data }) => {
               {data.score.toFixed(1)}
             </Text>
           </View>
-          <Text style={sharedFeedbackStyles.bandTitle}>Band descriptors</Text>
+          <Text style={sharedFeedbackStyles.bandTitle}>Feedback Summary</Text>
         </View>
-        <View style={sharedFeedbackStyles.bandContent}>
-          {data.bandDescriptors.map((descriptor, index) => (
-            <View key={index} style={sharedFeedbackStyles.bulletPoint}>
-              <Text style={sharedFeedbackStyles.bullet}>•</Text>
-              <Text style={sharedFeedbackStyles.bulletText}>{descriptor}</Text>
-            </View>
-          ))}
-        </View>
+        <Text style={sharedFeedbackStyles.criteriaFeedback}>{data.feedback}</Text>
       </View>
 
-      {/* Criteria Details */}
-      {data.criteria.map((criterion, index) => (
+      {/* Evaluation Details */}
+      {data.evaluation.map((item, index) => (
         <View
           key={index}
           style={[
-            sharedFeedbackStyles.criteriaCard,
-            { backgroundColor: getScoreBackgroundColor(criterion.score) },
+            feedbackStyles.criteriaCard,
+            { backgroundColor: getFeedbackSectionColor(item.criteria) },
           ]}
         >
           <View style={sharedFeedbackStyles.criteriaHeader}>
-            <Text style={sharedFeedbackStyles.criteriaName}>{criterion.name}</Text>
-            <View
+            <Text
               style={[
-                sharedFeedbackStyles.scoreBadge,
-                { backgroundColor: getScoreBadgeColor(criterion.score) },
-              ]}
-            >
-              <Text style={sharedFeedbackStyles.scoreBadgeText}>
-                {criterion.score}
-              </Text>
-            </View>
+                feedbackStyles.scoreBadge,
+                { backgroundColor: getScoreBadgeColor(item.criteria) },
+              ]}>{item.criteria}</Text>
           </View>
-          <Text style={sharedFeedbackStyles.criteriaFeedback}>
-            {criterion.feedback}
-          </Text>
-
-          {/* Error Sections (if exists) */}
-          {criterion.errorSections && criterion.errorSections.length > 0 && (
-            <>
-              {criterion.errorSections.map((section, sectionIndex) => (
-                <View key={sectionIndex} style={sharedFeedbackStyles.errorsSection}>
-                  <Text style={sharedFeedbackStyles.errorsSectionTitle}>
-                    {section.title}
-                  </Text>
-                  {section.errors.map((error, errorIndex) => (
-                    <View key={errorIndex} style={sharedFeedbackStyles.errorItem}>
-                      <Text style={sharedFeedbackStyles.errorCount}>{error.count}</Text>
-                      <Text style={sharedFeedbackStyles.errorType}>{error.type}</Text>
-                    </View>
-                  ))}
-                </View>
-              ))}
-            </>
-          )}
+          <Text style={sharedFeedbackStyles.criteriaFeedback}>{item.description}</Text>
         </View>
       ))}
 
-      {/* Note */}
-      <View style={sharedFeedbackStyles.noteContainer}>
-        <Text style={sharedFeedbackStyles.noteText}>
-          * Các chỉ số trên được đánh giá dựa trên việc so sánh kết quả với các bài cơ bản điểm tương đương
-        </Text>
-      </View>
+      {/* Errors Section */}
+      {/* <Text style={sharedFeedbackStyles.errorsSectionTitle}>Errors</Text> */}
+      {data.errors.length > 0 && (
+        <View style={feedbackStyles.errorsTable}>
+          <Text style={sharedFeedbackStyles.errorsSectionTitle}>Errors</Text>
+          <View style={feedbackStyles.errorsTableHeader}>
+            <Text style={[feedbackStyles.errorsTableHeaderText, { flex: 0.8 }]}>Original</Text>
+            <Text style={[feedbackStyles.errorsTableHeaderText, { flex: 1 }]}>Suggested</Text>
+            <Text style={[feedbackStyles.errorsTableHeaderText, { flex: 1.2 }]}>Explanation</Text>
+          </View>
+          {data.errors.map((error, index) => (
+            <View key={index} style={feedbackStyles.errorsTableRow}>
+              <Text style={feedbackStyles.errorsTableCellOriginal}>{error.original}</Text>
+              <Text style={feedbackStyles.errorsTableCellSuggested}>{error.suggested}</Text>
+              <Text style={feedbackStyles.errorsTableCellExplanation}>{error.explanation}</Text>
+            </View>
+          ))}
+        </View>
+      )}
 
       <View style={{ height: 20 }} />
     </ScrollView>

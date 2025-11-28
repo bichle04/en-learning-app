@@ -17,8 +17,17 @@ interface CriteriaDetail {
 interface FluencyFeedbackProps {
   data: {
     score: number;
-    bandDescriptors: string[];
-    criteria: CriteriaDetail[];
+    evaluation: {
+      criteria: string;
+      description: string;
+    }[];
+    errors: {
+      original: string;
+      suggested: string;
+      explanation: string;
+    }[];
+    feedback: string;
+    wpm: number;
   };
 }
 

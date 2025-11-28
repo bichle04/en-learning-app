@@ -93,10 +93,7 @@ export const sharedFeedbackStyles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
-  },
-  scoreBadgeText: {
     color: "#FFF",
-    fontSize: 12,
     fontWeight: "bold",
   },
   
@@ -121,9 +118,14 @@ export const sharedFeedbackStyles = StyleSheet.create({
   },
   errorsSectionTitle: {
     fontSize: 14,
+    margin: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    color: "#FFF",
     fontWeight: "bold",
-    color: "#333",
-    marginBottom: 12,
+    backgroundColor: "#FF6B6B",
+    textAlign: "center",
   },
   errorItem: {
     flexDirection: "row",
@@ -147,28 +149,102 @@ export const sharedFeedbackStyles = StyleSheet.create({
     color: "#333",
     flex: 1,
   },
+  
+  // Feedback sections styles
+  strengthsSection: {
+    backgroundColor: "#E8F5E9", // Light green
+    padding: 16,
+    marginBottom: 8,
+    borderRadius: 8,
+  },
+  weaknessesSection: {
+    backgroundColor: "#FFF3E0", // Light yellow
+    padding: 16,
+    marginBottom: 8,
+    borderRadius: 8,
+  },
+  improvementsSection: {
+    backgroundColor: "#E3F2FD", // Light blue
+    padding: 16,
+    marginBottom: 8,
+    borderRadius: 8,
+  },
+  errorsTable: {
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: "#E0E0E0",
+    borderRadius: 8,
+    overflow: "hidden",
+  },
+  errorsTableHeader: {
+    flexDirection: "row",
+    backgroundColor: "#FFEBEE",
+    padding: 8,
+  },
+  errorsTableHeaderText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "bold",
+    color: "#333",
+    textAlign: "center",
+  },
+  errorsTableRow: {
+    flexDirection: "row",
+    borderBottomWidth: 1,
+    borderBottomColor: "#E0E0E0",
+  },
+  errorsTableCell: {
+    flex: 1,
+    padding: 8,
+    fontSize: 14,
+    color: "#333",
+    borderRightWidth: 1, // Added vertical border
+    borderRightColor: "#E0E0E0", // Color for vertical border
+  },
+  errorsTableCellOriginal: {
+    flex: 0.8, // Reduced width for Original column
+    padding: 8,
+    fontSize: 14,
+    color: "#333",
+    borderRightWidth: 1,
+    borderRightColor: "#E0E0E0",
+  },
+  errorsTableCellSuggested: {
+    flex: 1, // Default width for Suggested column
+    padding: 8,
+    fontSize: 14,
+    color: "#333",
+    borderRightWidth: 1,
+    borderRightColor: "#E0E0E0",
+  },
+  errorsTableCellExplanation: {
+    flex: 1.2, // Increased width for Explanation column
+    padding: 8,
+    fontSize: 14,
+    color: "#333",
+  },
 });
 
 /**
  * Helper function to get score badge color
  */
 export const getScoreBadgeColor = (score: string): string => {
-  if (score === "Excellent") return "#1E90FF";
-  if (score === "Very Good") return "#4CAF50";
-  if (score === "Good") return "#FFA500";
-  if (score === "Modest") return "#FFA500"; // Same as Good
-  if (score === "Limited") return "#FF6B6B";
+  if (score === "Improvements") return "#1E90FF";
+  if (score === "Strengths") return "#4CAF50";
+  if (score === "Weaknesses") return "#FFA500";
+  if (score === "Errors") return "#FF6B6B";
   return "#FF6B6B";
 };
 
 /**
- * Helper function to get score background color (lighter version)
+ * Helper function to get feedback section color
  */
-export const getScoreBackgroundColor = (score: string): string => {
-  if (score === "Excellent") return "#E3F2FD"; // Light blue
-  if (score === "Very Good") return "#E8F5E9"; // Light green
-  if (score === "Good") return "#FFF3E0"; // Light orange
-  if (score === "Modest") return "#FFF3E0"; // Light orange
-  if (score === "Limited") return "#FFEBEE"; // Light red/pink
+export const getFeedbackSectionColor = (type: string): string => {
+  if (type === "Strengths") return "#E8F5E9"; // Light green
+  if (type === "Weaknesses") return "#FFF3E0"; // Light yellow
+  if (type === "Improvements") return "#E3F2FD"; // Light blue
+  if (type === "Errors") return "#FFEBEE"; // Light red
   return "#F5F5F5"; // Default gray
 };
+
+export { sharedFeedbackStyles as feedbackStyles };

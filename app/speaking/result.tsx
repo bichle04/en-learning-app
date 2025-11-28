@@ -10,6 +10,7 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
+import { MOCK_FEEDBACK } from "./feedback";
 
 const { width } = Dimensions.get("window");
 
@@ -23,25 +24,8 @@ interface SpeakingResult {
   partScores: {
     part: number;
     score: number;
-    label: string;
   }[];
-  completedDate: string;
 }
-
-// TODO: Backend - This mock data will be replaced with actual result from server
-const MOCK_RESULT: SpeakingResult = {
-  overallScore: 8.0,
-  fluencyScore: 8.0,
-  lexicalScore: 8.0,
-  grammarScore: 8.0,
-  pronunciationScore: 9.0,
-  partScores: [
-    { part: 1, score: 8.5, label: "Excellent" },
-    { part: 2, score: 8.5, label: "Excellent" },
-    { part: 3, score: 8.5, label: "Excellent" },
-  ],
-  completedDate: "25/11/2025",
-};
 
 export default function SpeakingResultScreen() {
   const router = useRouter();
@@ -49,7 +33,18 @@ export default function SpeakingResultScreen() {
 
   // TODO: Backend - Get result from params or fetch from API
   // const { testId, mode } = params;
-  const result = MOCK_RESULT;
+  const result = {
+    overallScore: MOCK_FEEDBACK.overall_score,
+    fluencyScore: MOCK_FEEDBACK.details.fluency.score,
+    lexicalScore: MOCK_FEEDBACK.details.vocabulary.score,
+    grammarScore: MOCK_FEEDBACK.details.grammar.score,
+    pronunciationScore: MOCK_FEEDBACK.details.pronunciation.score,
+    partScores: [
+      { part: 1, score: MOCK_FEEDBACK.details.fluency.score },
+      { part: 2, score: MOCK_FEEDBACK.details.grammar.score },
+      { part: 3, score: MOCK_FEEDBACK.details.pronunciation.score },
+    ],
+  };
 
   const getScoreColor = (score: number) => {
     if (score >= 8.0) return "#4CAF50"; // Green
@@ -142,14 +137,10 @@ export default function SpeakingResultScreen() {
                 <View key={partScore.part} style={styles.partCard}>
                   <BarChart3 color="#1E90FF" size={20} />
                   <Text style={styles.partNumber}>Part {partScore.part}</Text>
-                  <Text style={styles.partLabel}>{partScore.label}</Text>
                 </View>
               ))}
             </View>
           </View>
-
-          {/* Date */}
-          <Text style={styles.dateText}>{result.completedDate}</Text>
         </View>
 
         {/* Action Buttons */}
