@@ -75,3 +75,31 @@ export interface UpdateUserVocabulary extends Partial<CreateUserVocabulary> {
   review_count?: number;
   last_reviewed?: string;
 }
+
+export interface SpeakingPart {
+  id: number;
+  part: number;
+  title: string;
+  description?: string;
+  questions: any;
+}
+
+export interface SpeakingHistory {
+  id: number;
+  user_id: string; // Assumed based on typical pattern
+  part: number;
+  part_id: number;
+  created_at: string;
+  overall_score?: number;
+  details?: any;
+  general_suggestions?: any;
+  speaking_parts?: SpeakingPart; // For joined query
+}
+
+export interface SpeakingTestHistory {
+  id: number;
+  user_id: string; // Assumed based on typical pattern
+  created_at: string;
+  overall_score?: number;
+  data?: any;
+}
