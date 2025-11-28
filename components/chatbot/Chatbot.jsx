@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeColor } from '@/hooks/useThemeColor';
-import { callN8nApi, getFallbackResponse } from '@/services/n8n.service';
+import { callDifyApi, getDifyFallbackResponse } from '@/services/dify.service';
 
 const Chatbot = () => {
     const [messages, setMessages] = useState([
@@ -32,40 +32,7 @@ const Chatbot = () => {
     const textColor = useThemeColor({}, 'text');
     const tintColor = useThemeColor({}, 'tint');
 
-    // Call N8N webhook
-    const callN8nWebhook = async (messageToProcess) => {
-        try {
-            console.log('🔗 Gọi N8N webhook với message:', messageToProcess);
-
-            const response = await fetch('https://thanh16prod.app.n8n.cloud/webhook-test/send', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    userMessage: messageToProcess,
-                    timestamp: new Date().toISOString(),
-                    conversationHistory: messages.slice(-3).map(m => ({
-                        sender: m.sender,
-                        text: m.text
-                    }))
-                })
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            const data = await response.json();
-            console.log('✅ N8N response:', data);
-            return data;
-        } catch (error) {
-            console.error('❌ Error calling N8N webhook:', error);
-            throw error;
-        }
-    };
-
-    // Send message to N8N webhook and get AI response
+    // Send message to Dify AI
     const sendMessage = async () => {
         if (inputText.trim() === '') return;
 
@@ -83,14 +50,8 @@ const Chatbot = () => {
         setIsProcessing(true);
 
         try {
-            // Call N8N webhook
-            const response = await callN8nWebhook(messageToProcess);
-
-            // Extract AI response from N8N response
-            const aiResponse = response.output ||
-                response.result ||
-                response.message ||
-                'Xin lỗi, tôi không thể xử lý yêu cầu của bạn lúc này.';
+            // Call Dify API
+            const aiResponse = await callDifyApi(messageToProcess);
 
             const aiMessage = {
                 id: Date.now() + 1,
@@ -102,19 +63,11 @@ const Chatbot = () => {
             setMessages((prev) => [...prev, aiMessage]);
         } catch (error) {
             // Fallback response if API fails
-            const fallbackResponses = [
-                'Cảm ơn bạn đã chia sẻ! Tôi hiểu rồi. Hãy kể thêm về nội dung học tập bạn muốn nhé?',
-                'Rất thú vị! Bạn có thể giải thích thêm chi tiết không?',
-                'Tuyệt vời! Đó là một câu hỏi hay. Bạn muốn học gì tiếp theo?',
-                'Cảm ơn bạn! Tôi sẽ giúp bạn hiểu rõ hơn về vấn đề này.',
-                'Tôi hiểu rồi. Bạn có câu hỏi gì khác không?'
-            ];
-
-            const randomResponse = fallbackResponses[Math.floor(Math.random() * fallbackResponses.length)];
+            const fallbackResponse = getDifyFallbackResponse();
 
             const aiMessage = {
                 id: Date.now() + 1,
-                text: randomResponse,
+                text: fallbackResponse,
                 sender: 'bot',
                 timestamp: new Date(),
             };
