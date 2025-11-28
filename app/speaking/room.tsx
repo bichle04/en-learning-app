@@ -1,10 +1,17 @@
-import { BREAK_TIME, FULL_TEST_QUESTIONS, SPEAKING_QUESTIONS } from "@/data/speaking-mock-data";
+import { getSpeakingQuestions, getFullTestQuestions } from "@/services/speaking";
+import { SpeakingQuestion } from "@/types/speaking";
+import * as Speech from "expo-speech";
 import { Audio } from "expo-av";
+import * as FileSystem from "expo-file-system";
+import * as Sharing from "expo-sharing";
+
+const BREAK_TIME = 10;
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
 import { Pause, Volume2, X } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import {
+  Alert,
   Dimensions,
   Modal,
   Platform,
@@ -18,7 +25,7 @@ import {
 const { width } = Dimensions.get("window");
 
 // States for the speaking room
-type RoomState = 
+type RoomState =
   | "idle"           // Initial state - waiting to start
   | "playing-audio"  // Playing question audio
   | "break"          // 10s break between parts
@@ -38,35 +45,60 @@ export default function SpeakingRoom() {
   const [speakTimeLeft, setSpeakTimeLeft] = useState(0);
   const [breakTimeLeft, setBreakTimeLeft] = useState(0);
   const [showBreakModal, setShowBreakModal] = useState(false);
-  
+
   // Audio state
   const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
-  
+
   // Recording state (for backend integration)
   const [recordingUri, setRecordingUri] = useState<string | null>(null);
+  const [recording, setRecording] = useState<Audio.Recording | null>(null);
+  const [androidPermissionUri, setAndroidPermissionUri] = useState<string | null>(null);
 
   // Get questions based on mode
-  const questions =
-    mode === "test"
-      ? FULL_TEST_QUESTIONS
-      : SPEAKING_QUESTIONS.filter((q) => q.topicId === topicId);
+  const [questions, setQuestions] = useState<SpeakingQuestion[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const currentQuestion = questions[currentQuestionIndex];
-  const progress = ((currentQuestionIndex + 1) / questions.length) * 100;
-  
-  // Check if moving to a new part (for break time)
-  const isNewPart = currentQuestionIndex > 0 && 
-    questions[currentQuestionIndex - 1]?.part !== currentQuestion?.part;
+  useEffect(() => {
+    async function fetchQuestions() {
+      if (mode === "test") {
+        const data = await getFullTestQuestions();
+        setQuestions(data);
+      } else if (topicId) {
+        const data = await getSpeakingQuestions(topicId);
+        setQuestions(data);
+      }
+      setIsLoading(false);
+    }
+    fetchQuestions();
+  }, [mode, topicId]);
+
+  // Define currentQuestion and progress safely
+  const currentQuestion = questions[currentQuestionIndex] || {
+    id: "",
+    part: 1,
+    question: "",
+    prepTime: 0,
+    speakTime: 0,
+    audioUrl: "",
+  };
+
+  const progress = questions.length > 0
+    ? ((currentQuestionIndex + 1) / questions.length) * 100
+    : 0;
 
   // Cleanup audio on unmount
   useEffect(() => {
     return () => {
+      Speech.stop();
       if (sound) {
         sound.unloadAsync();
       }
+      if (recording) {
+        recording.stopAndUnloadAsync();
+      }
     };
-  }, [sound]);
+  }, [sound, recording]);
 
   // Timer effect for preparation, speaking, and break
   useEffect(() => {
@@ -99,7 +131,7 @@ export default function SpeakingRoom() {
         setSpeakTimeLeft((prev) => {
           if (prev <= 1) {
             // Auto stop recording when time is up
-            stopRecording();
+            pauseRecording();
             return 0;
           }
           return prev - 1;
@@ -111,6 +143,25 @@ export default function SpeakingRoom() {
       if (interval) clearInterval(interval);
     };
   }, [roomState, prepTimeLeft, speakTimeLeft, breakTimeLeft]);
+
+  if (isLoading) {
+    return (
+      <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
+        <Text>Loading questions...</Text>
+      </View>
+    );
+  }
+
+  if (questions.length === 0) {
+    return (
+      <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
+        <Text>No questions found.</Text>
+        <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 20, padding: 10 }}>
+          <Text style={{ color: "blue" }}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   // ========================================
   // BACKEND INTEGRATION POINTS
@@ -127,20 +178,27 @@ export default function SpeakingRoom() {
     try {
       setIsAudioPlaying(true);
       setRoomState("playing-audio");
-      
-      // BACKEND: Replace this with actual audio file from API
-      const { sound: audioSound } = await Audio.Sound.createAsync(
-        require("@/assets/sounds/correct.mp3"), // Temporary mock file
-        { shouldPlay: true },
-        onAudioPlaybackStatusUpdate
-      );
-      
-      setSound(audioSound);
-      await audioSound.playAsync();
+
+      const textToSpeak = currentQuestion.question || "Please listen to the instructions.";
+
+      Speech.speak(textToSpeak, {
+        language: 'en-US',
+        rate: 0.9,
+        onDone: () => {
+          handleAudioFinished();
+        },
+        onStopped: () => {
+          setIsAudioPlaying(false);
+        },
+        onError: (e) => {
+          console.error("Speech error", e);
+          handleAudioFinished();
+        }
+      });
+
     } catch (error) {
       console.error("Error playing audio:", error);
-      // BACKEND: Handle error - maybe show error message to user
-      handleAudioFinished(); // Continue anyway
+      handleAudioFinished();
     }
   };
 
@@ -159,7 +217,7 @@ export default function SpeakingRoom() {
    */
   const handleAudioFinished = () => {
     setIsAudioPlaying(false);
-    
+
     // Part 2 has preparation time
     if (currentQuestion.part === 2 && currentQuestion.prepTime > 0) {
       setRoomState("preparing");
@@ -172,66 +230,146 @@ export default function SpeakingRoom() {
 
   /**
    * Start recording user's answer
-   * BACKEND TODO: Implement actual audio recording
-   * - Use expo-av Audio.Recording
-   * - Save recording file
-   * - Handle permissions
    */
   const startRecording = async () => {
     try {
-      setRoomState("recording");
-      setSpeakTimeLeft(currentQuestion.speakTime);
-      
-      // BACKEND: Start actual recording here
-      console.log("🎤 START RECORDING - Part", currentQuestion.part);
-      
-      // BACKEND TODO: Example implementation
-      // const { recording } = await Audio.Recording.createAsync(
-      //   Audio.RecordingOptionsPresets.HIGH_QUALITY
-      // );
-      // Store recording reference for later use
-      
-    } catch (error) {
-      console.error("Error starting recording:", error);
-      // BACKEND: Handle recording permission/error
+      console.log("Requesting permissions..");
+      const permission = await Audio.requestPermissionsAsync();
+      if (permission.status === "granted") {
+        await Audio.setAudioModeAsync({
+          allowsRecordingIOS: true,
+          playsInSilentModeIOS: true,
+        });
+
+        if (recording) {
+          console.log("Resuming recording..");
+          await recording.startAsync();
+        } else {
+          console.log("Starting new recording..");
+          const { recording: newRecording } = await Audio.Recording.createAsync(
+            Audio.RecordingOptionsPresets.HIGH_QUALITY
+          );
+          setRecording(newRecording);
+        }
+
+        setRoomState("recording");
+        setSpeakTimeLeft(currentQuestion.speakTime);
+        console.log("Recording started/resumed");
+      } else {
+        console.error("Permission to record audio not granted");
+      }
+    } catch (err) {
+      console.error("Failed to start recording", err);
     }
   };
 
   /**
-   * Stop recording user's answer
-   * BACKEND TODO: Stop recording and save file
-   * - Stop Audio.Recording
-   * - Get recording URI
-   * - Upload to server if needed
+   * Pause recording user's answer (between questions)
    */
-  const stopRecording = async () => {
+  const pauseRecording = async () => {
+    console.log("Pausing recording..");
+    setRoomState("finished");
+
+    if (!recording) {
+      return;
+    }
+
     try {
-      setRoomState("finished");
-      
-      // BACKEND: Stop actual recording here
-      console.log("⏹️ STOP RECORDING - Part", currentQuestion.part);
-      
-      // BACKEND TODO: Example implementation
-      // await recording.stopAndUnloadAsync();
-      // const uri = recording.getURI();
-      // setRecordingUri(uri);
-      // uploadRecording(uri); // Send to server
-      
+      await recording.pauseAsync();
+      console.log("Recording paused");
     } catch (error) {
-      console.error("Error stopping recording:", error);
+      console.error("Error pausing recording:", error);
+    }
+  };
+
+  /**
+   * Save the recording
+   */
+  const saveRecording = async () => {
+    console.log("Saving recording..");
+    if (!recording) return;
+
+    try {
+      await recording.stopAndUnloadAsync();
+      const uri = recording.getURI();
+      console.log("Recording stopped and stored at", uri);
+
+      if (uri) {
+        let fileName = "";
+        if (mode === "test") {
+          fileName = `recording-full-test-${Date.now()}.m4a`;
+        } else {
+          fileName = `recording-part-${currentQuestion.part}-${Date.now()}.m4a`;
+        }
+
+        const newPath = FileSystem.documentDirectory + fileName;
+
+        await FileSystem.moveAsync({
+          from: uri,
+          to: newPath,
+        });
+        console.log("Recording saved to", newPath);
+        setRecordingUri(newPath);
+
+        // Save or share the file based on platform
+        if (Platform.OS === "android") {
+          try {
+            let directoryUri = androidPermissionUri;
+
+            // If we don't have permission yet, ask for it
+            if (!directoryUri) {
+              const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
+              if (permissions.granted) {
+                directoryUri = permissions.directoryUri;
+                setAndroidPermissionUri(directoryUri);
+              } else {
+                Alert.alert("Permission denied", "Cannot save recording without folder permission.");
+                return;
+              }
+            }
+
+            if (directoryUri) {
+              const base64 = await FileSystem.readAsStringAsync(newPath, { encoding: FileSystem.EncodingType.Base64 });
+              const createdUri = await FileSystem.StorageAccessFramework.createFileAsync(directoryUri, fileName, 'audio/mp4');
+              await FileSystem.writeAsStringAsync(createdUri, base64, { encoding: FileSystem.EncodingType.Base64 });
+              Alert.alert("Success", "Recording saved successfully!");
+            }
+          } catch (e) {
+            console.error("Error saving file:", e);
+            Alert.alert("Error", "Failed to save recording.");
+            // Reset permission if it failed, might need to re-ask
+            setAndroidPermissionUri(null);
+          }
+        } else {
+          // iOS
+          if (await Sharing.isAvailableAsync()) {
+            await Sharing.shareAsync(newPath);
+          }
+        }
+      }
+
+      // Reset recording
+      setRecording(null);
+    } catch (error) {
+      console.error("Error saving recording:", error);
     }
   };
 
   /**
    * Move to next question or finish test
    */
-  const handleNextQuestion = () => {
+  const handleNextQuestion = async () => {
     if (currentQuestionIndex < questions.length - 1) {
       const nextIndex = currentQuestionIndex + 1;
       const nextQuestion = questions[nextIndex];
-      
-      // Check if entering a new part - add break time
+
+      // Check if entering a new part
       if (currentQuestion.part !== nextQuestion.part) {
+        // Only save intermediate recordings in practice mode
+        if (mode === "practice") {
+          await saveRecording();
+        }
+
         setCurrentQuestionIndex(nextIndex);
         setRoomState("break");
         setBreakTimeLeft(BREAK_TIME);
@@ -240,12 +378,15 @@ export default function SpeakingRoom() {
         setCurrentQuestionIndex(nextIndex);
         setRoomState("idle");
       }
-      
+
       // Reset states
       setPrepTimeLeft(0);
       setSpeakTimeLeft(0);
       setRecordingUri(null);
     } else {
+      // End of test - save recording (full test or last part)
+      await saveRecording();
+
       // BACKEND: Navigate to results with all recordings
       // Pass recordingUris array to result screen
       router.push("/speaking/result" as any);
@@ -265,17 +406,17 @@ export default function SpeakingRoom() {
   const getInstructionText = () => {
     switch (roomState) {
       case "idle":
-        return "Nhấn nút phát để bắt đầu";
+        return "Press play to start";
       case "playing-audio":
-        return "Đang phát câu hỏi...";
+        return "Playing the question...";
       case "break":
-        return `Nghỉ giữa giờ - Part ${currentQuestion.part}`;
+        return `Break time - Part ${currentQuestion.part}`;
       case "preparing":
-        return "Thời gian chuẩn bị";
+        return "Preparation time";
       case "recording":
-        return "Đang ghi âm...";
+        return "Recording...";
       case "finished":
-        return "Đã hoàn thành!";
+        return "Completed!";
       default:
         return "";
     }
@@ -352,32 +493,32 @@ export default function SpeakingRoom() {
           {/* Timer/Status Display */}
           <View style={styles.timerContainer}>
             {/* Remove break display from main UI - now in modal */}
-            
+
             {roomState === "preparing" && (
               <View style={styles.timerBox}>
-                <Text style={styles.timerLabel}>Thời gian chuẩn bị</Text>
+                <Text style={styles.timerLabel}>Preparation time</Text>
                 <Text style={styles.timerValue}>{formatTime(prepTimeLeft)}</Text>
               </View>
             )}
-            
+
             {roomState === "recording" && (
               <View style={styles.timerBox}>
-                <Text style={styles.timerLabel}>Thời gian còn lại</Text>
+                <Text style={styles.timerLabel}>Time remaining</Text>
                 <Text style={styles.timerValue}>{formatTime(speakTimeLeft)}</Text>
               </View>
             )}
-            
+
             {roomState === "finished" && (
               <View style={styles.timerBox}>
-                <Text style={styles.timerLabel}>Đã hoàn thành!</Text>
+                <Text style={styles.timerLabel}>Completed!</Text>
                 <TouchableOpacity
                   style={styles.nextButton}
                   onPress={handleNextQuestion}
                 >
                   <Text style={styles.nextButtonText}>
                     {currentQuestionIndex < questions.length - 1
-                      ? "Câu tiếp theo"
-                      : "Xem kết quả"}
+                      ? "Next question"
+                      : "View results"}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -398,7 +539,7 @@ export default function SpeakingRoom() {
           {roomState === "recording" && (
             <View style={styles.recordingIndicator}>
               <View style={styles.recordingDot} />
-              <Text style={styles.recordingText}>Đang ghi âm</Text>
+              <Text style={styles.recordingText}>Recording</Text>
             </View>
           )}
         </View>
@@ -409,7 +550,7 @@ export default function SpeakingRoom() {
         visible={showBreakModal}
         transparent={true}
         animationType="fade"
-        onRequestClose={() => {}} // Prevent closing by back button
+        onRequestClose={() => { }} // Prevent closing by back button
       >
         <View style={styles.modalOverlay}>
           <LinearGradient
@@ -425,17 +566,17 @@ export default function SpeakingRoom() {
             <View style={[styles.modalStar, { bottom: 60, right: 30 }]} />
 
             <Text style={styles.breakEmoji}>☕</Text>
-            <Text style={styles.breakTitle}>Thời gian nghỉ</Text>
+            <Text style={styles.breakTitle}>Break time</Text>
             <Text style={styles.breakSubtitle}>
-              Bạn đã hoàn thành Part {questions[currentQuestionIndex - 1]?.part || currentQuestion.part}
+              You have completed Part {questions[currentQuestionIndex - 1]?.part || currentQuestion.part}
             </Text>
-            
+
             <View style={styles.breakTimerBox}>
               <Text style={styles.breakTimerValue}>{formatTime(breakTimeLeft)}</Text>
             </View>
 
             <Text style={styles.breakMessage}>
-              Chuẩn bị tinh thần cho Part {currentQuestion.part}! 💪
+              Prepare for Part {currentQuestion.part}! 💪
             </Text>
           </LinearGradient>
         </View>

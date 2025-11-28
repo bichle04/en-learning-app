@@ -47,9 +47,9 @@ export default function SpeakingModeSelection() {
         <View style={styles.content}>
           {/* Title */}
           <View style={styles.titleContainer}>
-            <Text style={styles.title}>Chọn chế độ làm bài</Text>
+            <Text style={styles.title}>Select test mode</Text>
             <Text style={styles.subtitle}>
-              Lựa chọn chế độ phù hợp với bạn
+              Choose the mode that suits you best
             </Text>
           </View>
 
@@ -66,9 +66,9 @@ export default function SpeakingModeSelection() {
                   <Headphones size={48} color="#FFB800" strokeWidth={2} />
                 </View>
               </View>
-              <Text style={styles.cardTitle}>Luyện tập</Text>
+              <Text style={styles.cardTitle}>Practice</Text>
               <Text style={styles.cardDescription}>
-                Ôn luyện để chinh phục Speaking
+                Practice speaking with instant feedback
               </Text>
             </TouchableOpacity>
 
@@ -83,9 +83,9 @@ export default function SpeakingModeSelection() {
                   <Trophy size={48} color="#FFB800" strokeWidth={2} />
                 </View>
               </View>
-              <Text style={styles.cardTitle}>Phòng thi</Text>
+              <Text style={styles.cardTitle}>Test</Text>
               <Text style={styles.cardDescription}>
-                Thi thử trong phòng thi ảo
+                Take a mock test in a virtual test room
               </Text>
             </TouchableOpacity>
           </View>

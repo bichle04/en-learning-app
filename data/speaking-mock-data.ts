@@ -48,7 +48,7 @@ export const SPEAKING_QUESTIONS: SpeakingQuestion[] = [
     topicId: "p1-general",
     question: "", // No text question - examiner will ask via audio
     prepTime: 0,
-    speakTime: 3, // 5 minutes total
+    speakTime: 300, // 5 minutes total
     audioUrl: "correct.mp3", // BACKEND: Replace with actual Part 1 audio file
   },
   

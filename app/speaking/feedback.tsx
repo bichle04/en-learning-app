@@ -349,7 +349,7 @@ export default function SpeakingFeedbackScreen() {
         >
           <ChevronLeft color="#FFF" size={28} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Kết quả</Text>
+        <Text style={styles.headerTitle}>Result</Text>
         <View style={styles.headerRight} />
       </LinearGradient>
 

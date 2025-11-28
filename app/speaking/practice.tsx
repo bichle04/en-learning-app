@@ -1,17 +1,17 @@
-import { SPEAKING_TOPICS } from "@/data/speaking-mock-data";
-import { SpeakingPart } from "@/types/speaking";
+import { getSpeakingTopics } from "@/services/speaking";
+import { SpeakingPart, SpeakingTopic } from "@/types/speaking";
 import { router } from "expo-router";
 import { ArrowLeft, BookOpen } from "lucide-react-native";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
-    Dimensions,
-    Platform,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Dimensions,
+  Platform,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 const { width } = Dimensions.get("window");
@@ -41,9 +41,22 @@ export default function PracticeMode() {
     }
   };
 
-  const topics = selectedPart
-    ? SPEAKING_TOPICS.filter((t) => t.part === selectedPart)
-    : [];
+  const [topics, setTopics] = useState<SpeakingTopic[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    async function fetchTopics() {
+      if (selectedPart) {
+        setIsLoading(true);
+        const data = await getSpeakingTopics(selectedPart);
+        setTopics(data);
+        setIsLoading(false);
+      } else {
+        setTopics([]);
+      }
+    }
+    fetchTopics();
+  }, [selectedPart]);
 
   return (
     <View style={styles.container}>
@@ -54,14 +67,14 @@ export default function PracticeMode() {
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <ArrowLeft size={24} color="#333" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Luyện tập Speaking</Text>
+        <Text style={styles.headerTitle}>Practice Speaking</Text>
         <View style={{ width: 40 }} />
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Part Selection */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Chọn Part</Text>
+          <Text style={styles.sectionTitle}>Select Part</Text>
           <View style={styles.partContainer}>
             {[1, 2, 3].map((part) => (
               <TouchableOpacity
@@ -98,7 +111,7 @@ export default function PracticeMode() {
         {/* Topic Selection */}
         {selectedPart && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Chọn chủ đề</Text>
+            <Text style={styles.sectionTitle}>Select topic</Text>
             {topics.map((topic) => (
               <TouchableOpacity
                 key={topic.id}
@@ -138,7 +151,7 @@ export default function PracticeMode() {
             style={styles.startButton}
             onPress={handleStartPractice}
           >
-            <Text style={styles.startButtonText}>Bắt đầu luyện tập</Text>
+            <Text style={styles.startButtonText}>Start Practice</Text>
           </TouchableOpacity>
         </View>
       )}

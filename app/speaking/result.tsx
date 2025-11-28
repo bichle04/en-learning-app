@@ -155,7 +155,7 @@ export default function SpeakingResultScreen() {
             end={{ x: 1, y: 1 }}
             style={styles.detailButtonGradient}
           >
-            <Text style={styles.detailButtonText}>Xem chi tiết</Text>
+            <Text style={styles.detailButtonText}>View Details</Text>
             <ChevronRight color="#FFF" size={24} />
           </LinearGradient>
         </TouchableOpacity>
@@ -165,7 +165,7 @@ export default function SpeakingResultScreen() {
           onPress={handleBackToHome}
           activeOpacity={0.8}
         >
-          <Text style={styles.backButtonText}>Quay về trang chủ</Text>
+          <Text style={styles.backButtonText}>Back to Home</Text>
         </TouchableOpacity>
       </ScrollView>
     </LinearGradient>
