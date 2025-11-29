@@ -1,4 +1,4 @@
-import { getSpeakingQuestions, getFullTestQuestions } from "@/services/speaking";
+import { speakingService } from "@/services/speaking.service";
 import { SpeakingQuestion } from "@/types/speaking";
 import * as Speech from "expo-speech";
 import { Audio } from "expo-av";
@@ -62,10 +62,10 @@ export default function SpeakingRoom() {
   useEffect(() => {
     async function fetchQuestions() {
       if (mode === "test") {
-        const data = await getFullTestQuestions();
+        const data = await speakingService.getFullTestQuestions();
         setQuestions(data);
       } else if (topicId) {
-        const data = await getSpeakingQuestions(topicId);
+        const data = await speakingService.getSpeakingQuestions(topicId);
         setQuestions(data);
       }
       setIsLoading(false);

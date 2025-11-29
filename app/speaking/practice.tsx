@@ -1,4 +1,4 @@
-import { getSpeakingTopics } from "@/services/speaking";
+import { speakingService } from "@/services/speaking.service";
 import { SpeakingPart, SpeakingTopic } from "@/types/speaking";
 import { router } from "expo-router";
 import { ArrowLeft, BookOpen } from "lucide-react-native";
@@ -48,7 +48,7 @@ export default function PracticeMode() {
     async function fetchTopics() {
       if (selectedPart) {
         setIsLoading(true);
-        const data = await getSpeakingTopics(selectedPart);
+        const data = await speakingService.getTopicsByPart(selectedPart);
         setTopics(data);
         setIsLoading(false);
       } else {

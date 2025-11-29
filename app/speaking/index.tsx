@@ -1,6 +1,6 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import { Headphones, Trophy } from "lucide-react-native";
+import { BarChart3, Headphones, History, Trophy } from "lucide-react-native";
 import {
   Dimensions,
   Platform,
@@ -89,6 +89,31 @@ export default function SpeakingModeSelection() {
               </Text>
             </TouchableOpacity>
           </View>
+
+          {/* Additional Actions */}
+          <View style={styles.actionsContainer}>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => router.push("/speaking/history")}
+              activeOpacity={0.8}
+            >
+              <View style={styles.actionIcon}>
+                <History size={24} color="#1E90FF" />
+              </View>
+              <Text style={styles.actionText}>History</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => router.push("/speaking/stats")}
+              activeOpacity={0.8}
+            >
+              <View style={styles.actionIcon}>
+                <BarChart3 size={24} color="#1E90FF" />
+              </View>
+              <Text style={styles.actionText}>Statistics</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </LinearGradient>
     </View>
@@ -147,6 +172,7 @@ const styles = StyleSheet.create({
     gap: 16,
     width: "100%",
     justifyContent: "center",
+    marginBottom: 30,
   },
   card: {
     backgroundColor: "#FFFFFF",
@@ -200,5 +226,35 @@ const styles = StyleSheet.create({
     position: "absolute",
     width: 16,
     height: 16,
+  },
+  actionsContainer: {
+    flexDirection: "row",
+    gap: 16,
+    width: "100%",
+    justifyContent: "center",
+  },
+  actionButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 30,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.4)",
+  },
+  actionIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 8,
+  },
+  actionText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "600",
   },
 });

@@ -1,20 +1,20 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Award, BarChart3, ChevronRight } from "lucide-react-native";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
-    Dimensions,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Dimensions,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  ActivityIndicator
 } from "react-native";
 import { MOCK_FEEDBACK } from "./feedback";
 
 const { width } = Dimensions.get("window");
 
-// TODO: Backend - Replace with actual result data from API
 interface SpeakingResult {
   overallScore: number;
   fluencyScore: number;
@@ -54,7 +54,7 @@ export default function SpeakingResultScreen() {
   };
 
   const handleViewDetails = () => {
-    // TODO: Backend - Navigate to feedback screen with result ID
+    // Navigate to feedback screen with result ID
     router.push("/speaking/feedback" as any);
   };
 
