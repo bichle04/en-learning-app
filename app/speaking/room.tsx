@@ -291,7 +291,7 @@ export default function SpeakingRoom() {
    */
   const saveRecording = async () => {
     console.log("Saving recording..");
-    if (!recording) return;
+    if (!recording) return null;
 
     try {
       await recording.stopAndUnloadAsync();
@@ -335,12 +335,14 @@ export default function SpeakingRoom() {
           console.log("Feedback received from API:", feedback);
           setApiFeedback(feedback); // Store feedback for later use
           Alert.alert("Success", "Recording processed successfully!");
+          return feedback; // Return feedback for immediate use
         } catch (apiError) {
           console.error("Error sending to API:", apiError);
           Alert.alert("API Error", "Failed to process recording. Please try again.");
+          return null;
         }
 
-        // Save or share the file based on platform
+        // Save or share the file based on platform (skip web)
         if (Platform.OS === "android") {
           try {
             let directoryUri = androidPermissionUri;
@@ -369,12 +371,13 @@ export default function SpeakingRoom() {
             // Reset permission if it failed, might need to re-ask
             setAndroidPermissionUri(null);
           }
-        } else {
+        } else if (Platform.OS === "ios") {
           // iOS
           if (await Sharing.isAvailableAsync()) {
             await Sharing.shareAsync(newPath);
           }
         }
+        // Web: Skip file sharing for blob URIs
       }
 
       // Reset recording
@@ -414,15 +417,14 @@ export default function SpeakingRoom() {
       setRecordingUri(null);
     } else {
       // End of test - save recording (full test or last part)
-      await saveRecording();
+      const recordingFeedback = await saveRecording();
 
-      // BACKEND: Navigate to results with feedback
-      // Pass feedback data to result screen
-      if (apiFeedback) {
+      // Navigate to results with feedback
+      if (recordingFeedback) {
         router.push({
           pathname: "/speaking/feedback",
           params: {
-            feedback: JSON.stringify(apiFeedback)
+            feedback: JSON.stringify(recordingFeedback)
           }
         } as any);
       } else {

@@ -282,13 +282,18 @@ export const speakingService = {
     try {
       console.log('[submitSpeakingAudio] Audio path:', audioFilePath);
 
-      // Get filename from path
-      const fileName = audioFilePath.split('/').pop() || 'audio.m4a';
+      // Get filename from path - ensure it has .wav extension
+      let fileName = 'audio.wav';
+      const fileNameFromPath = audioFilePath.split('/').pop();
+      if (fileNameFromPath && fileNameFromPath.match(/\.(mp3|wav|m4a|ogg|webm)$/i)) {
+        fileName = fileNameFromPath.replace(/\.(mp3|m4a|ogg|webm)$/i, '.wav');
+      }
+      console.log('[submitSpeakingAudio] File name:', fileName);
 
       // For web: convert blob URL to File directly
       if (audioFilePath.includes('blob:')) {
         console.log('[submitSpeakingAudio] Handling blob URI');
-        
+
         const blobUrl = audioFilePath.substring(audioFilePath.indexOf('blob:'));
         console.log('[submitSpeakingAudio] Blob URL:', blobUrl);
 
@@ -302,13 +307,21 @@ export const speakingService = {
 
         // Send to API
         console.log('[submitSpeakingAudio] Sending to API...');
-        const apiResponse = await fetch(
-          'https://42c4fb06a346.ngrok-free.app/process/speaking',
-          {
-            method: 'POST',
-            body: formData,
-          }
-        );
+        const apiUrl = 'https://52e38967b03c.ngrok-free.app/process/speaking';
+        console.log('[submitSpeakingAudio] API URL:', apiUrl);
+
+        const apiResponse = await fetch(apiUrl, {
+          method: 'POST',
+          body: formData,
+        }).catch(error => {
+          console.error('[submitSpeakingAudio] Fetch error details:', {
+            message: error.message,
+            name: error.name,
+            url: apiUrl,
+            corsHint: 'If CORS error: Check if ngrok backend is running and URL is up-to-date'
+          });
+          throw error;
+        });
 
         console.log('[submitSpeakingAudio] Response status:', apiResponse.status);
 
@@ -321,11 +334,11 @@ export const speakingService = {
         const feedback = await apiResponse.json();
         console.log('[submitSpeakingAudio] Feedback received:', feedback);
         return feedback;
-      } 
+      }
       // For native: handle file paths
       else if (audioFilePath.startsWith('file://')) {
         console.log('[submitSpeakingAudio] Handling native file URI');
-        
+
         const formData = new FormData();
         (formData as any).append('file', {
           uri: audioFilePath,
@@ -333,13 +346,11 @@ export const speakingService = {
           name: fileName,
         });
 
-        const apiResponse = await fetch(
-          'https://42c4fb06a346.ngrok-free.app/process/speaking',
-          {
-            method: 'POST',
-            body: formData,
-          }
-        );
+        const apiUrl = 'https://52e38967b03c.ngrok-free.app/process/speaking';
+        const apiResponse = await fetch(apiUrl, {
+          method: 'POST',
+          body: formData,
+        });
 
         console.log('[submitSpeakingAudio] Response status:', apiResponse.status);
 
