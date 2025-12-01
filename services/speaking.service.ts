@@ -276,5 +276,89 @@ export const speakingService = {
       skills,
       recentActivity
     };
+  },
+
+  async submitSpeakingAudio(audioFilePath: string) {
+    try {
+      console.log('[submitSpeakingAudio] Audio path:', audioFilePath);
+
+      // Get filename from path
+      const fileName = audioFilePath.split('/').pop() || 'audio.m4a';
+
+      // For web: convert blob URL to File directly
+      if (audioFilePath.includes('blob:')) {
+        console.log('[submitSpeakingAudio] Handling blob URI');
+        
+        const blobUrl = audioFilePath.substring(audioFilePath.indexOf('blob:'));
+        console.log('[submitSpeakingAudio] Blob URL:', blobUrl);
+
+        const response = await fetch(blobUrl);
+        const blob = await response.blob();
+        console.log('[submitSpeakingAudio] Blob fetched - Size:', blob.size, 'Type:', blob.type);
+
+        // Create FormData with blob directly
+        const formData = new FormData();
+        formData.append('file', blob, fileName);
+
+        // Send to API
+        console.log('[submitSpeakingAudio] Sending to API...');
+        const apiResponse = await fetch(
+          'https://42c4fb06a346.ngrok-free.app/process/speaking',
+          {
+            method: 'POST',
+            body: formData,
+          }
+        );
+
+        console.log('[submitSpeakingAudio] Response status:', apiResponse.status);
+
+        if (!apiResponse.ok) {
+          const errorText = await apiResponse.text();
+          console.error('[submitSpeakingAudio] Error response:', errorText);
+          throw new Error(`API Error: ${apiResponse.status} - ${errorText}`);
+        }
+
+        const feedback = await apiResponse.json();
+        console.log('[submitSpeakingAudio] Feedback received:', feedback);
+        return feedback;
+      } 
+      // For native: handle file paths
+      else if (audioFilePath.startsWith('file://')) {
+        console.log('[submitSpeakingAudio] Handling native file URI');
+        
+        const formData = new FormData();
+        (formData as any).append('file', {
+          uri: audioFilePath,
+          type: 'audio/mp4',
+          name: fileName,
+        });
+
+        const apiResponse = await fetch(
+          'https://42c4fb06a346.ngrok-free.app/process/speaking',
+          {
+            method: 'POST',
+            body: formData,
+          }
+        );
+
+        console.log('[submitSpeakingAudio] Response status:', apiResponse.status);
+
+        if (!apiResponse.ok) {
+          const errorText = await apiResponse.text();
+          console.error('[submitSpeakingAudio] Error response:', errorText);
+          throw new Error(`API Error: ${apiResponse.status} - ${errorText}`);
+        }
+
+        const feedback = await apiResponse.json();
+        console.log('[submitSpeakingAudio] Feedback received:', feedback);
+        return feedback;
+      }
+      else {
+        throw new Error('Invalid audio file path');
+      }
+    } catch (error) {
+      console.error('[submitSpeakingAudio] Error:', error);
+      throw error;
+    }
   }
 };
