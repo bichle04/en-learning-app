@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { API_CONFIG } from '../constants/api.config';
 import { SpeakingHistory, SpeakingTestHistory } from '../types/database';
 import { SpeakingQuestion, SpeakingTopic, SpeakingPart } from '../types/speaking';
 
@@ -276,5 +277,100 @@ export const speakingService = {
       skills,
       recentActivity
     };
+  },
+
+  async submitSpeakingAudio(audioFilePath: string) {
+    try {
+      console.log('[submitSpeakingAudio] Audio path:', audioFilePath);
+
+      // Get filename from path - ensure it has .wav extension
+      let fileName = 'audio.wav';
+      const fileNameFromPath = audioFilePath.split('/').pop();
+      if (fileNameFromPath && fileNameFromPath.match(/\.(mp3|wav|m4a|ogg|webm)$/i)) {
+        fileName = fileNameFromPath.replace(/\.(mp3|m4a|ogg|webm)$/i, '.wav');
+      }
+      console.log('[submitSpeakingAudio] File name:', fileName);
+
+      // For web: convert blob URL to File directly
+      if (audioFilePath.includes('blob:')) {
+        console.log('[submitSpeakingAudio] Handling blob URI');
+
+        const blobUrl = audioFilePath.substring(audioFilePath.indexOf('blob:'));
+        console.log('[submitSpeakingAudio] Blob URL:', blobUrl);
+
+        const response = await fetch(blobUrl);
+        const blob = await response.blob();
+        console.log('[submitSpeakingAudio] Blob fetched - Size:', blob.size, 'Type:', blob.type);
+
+        // Create FormData with blob directly
+        const formData = new FormData();
+        formData.append('file', blob, fileName);
+
+        // Send to API
+        console.log('[submitSpeakingAudio] Sending to API...');
+        const apiUrl = API_CONFIG.IELTS_SPEAKING_API;
+        console.log('[submitSpeakingAudio] API URL:', apiUrl);
+
+        const apiResponse = await fetch(apiUrl, {
+          method: 'POST',
+          body: formData,
+        }).catch(error => {
+          console.error('[submitSpeakingAudio] Fetch error details:', {
+            message: error.message,
+            name: error.name,
+            url: apiUrl,
+            corsHint: 'If CORS error: Check if ngrok backend is running and URL is up-to-date'
+          });
+          throw error;
+        });
+
+        console.log('[submitSpeakingAudio] Response status:', apiResponse.status);
+
+        if (!apiResponse.ok) {
+          const errorText = await apiResponse.text();
+          console.error('[submitSpeakingAudio] Error response:', errorText);
+          throw new Error(`API Error: ${apiResponse.status} - ${errorText}`);
+        }
+
+        const feedback = await apiResponse.json();
+        console.log('[submitSpeakingAudio] Feedback received:', feedback);
+        return feedback;
+      }
+      // For native: handle file paths
+      else if (audioFilePath.startsWith('file://')) {
+        console.log('[submitSpeakingAudio] Handling native file URI');
+
+        const formData = new FormData();
+        (formData as any).append('file', {
+          uri: audioFilePath,
+          type: 'audio/mp4',
+          name: fileName,
+        });
+
+        const apiUrl = API_CONFIG.IELTS_SPEAKING_API;
+        const apiResponse = await fetch(apiUrl, {
+          method: 'POST',
+          body: formData,
+        });
+
+        console.log('[submitSpeakingAudio] Response status:', apiResponse.status);
+
+        if (!apiResponse.ok) {
+          const errorText = await apiResponse.text();
+          console.error('[submitSpeakingAudio] Error response:', errorText);
+          throw new Error(`API Error: ${apiResponse.status} - ${errorText}`);
+        }
+
+        const feedback = await apiResponse.json();
+        console.log('[submitSpeakingAudio] Feedback received:', feedback);
+        return feedback;
+      }
+      else {
+        throw new Error('Invalid audio file path');
+      }
+    } catch (error) {
+      console.error('[submitSpeakingAudio] Error:', error);
+      throw error;
+    }
   }
 };

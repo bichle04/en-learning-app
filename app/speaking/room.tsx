@@ -4,6 +4,7 @@ import * as Speech from "expo-speech";
 import { Audio } from "expo-av";
 import * as FileSystem from "expo-file-system";
 import * as Sharing from "expo-sharing";
+import ScoringModal from "../../components/speaking/ScoringModal";
 
 const BREAK_TIME = 10;
 import { LinearGradient } from "expo-linear-gradient";
@@ -54,6 +55,9 @@ export default function SpeakingRoom() {
   const [recordingUri, setRecordingUri] = useState<string | null>(null);
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
   const [androidPermissionUri, setAndroidPermissionUri] = useState<string | null>(null);
+  const [apiFeedback, setApiFeedback] = useState<any>(null);
+  const [isRecordingUnloaded, setIsRecordingUnloaded] = useState(false);
+  const [isScoring, setIsScoring] = useState(false);
 
   // Get questions based on mode
   const [questions, setQuestions] = useState<SpeakingQuestion[]>([]);
@@ -94,11 +98,13 @@ export default function SpeakingRoom() {
       if (sound) {
         sound.unloadAsync();
       }
-      if (recording) {
-        recording.stopAndUnloadAsync();
+      if (recording && !isRecordingUnloaded) {
+        recording.stopAndUnloadAsync().catch(() => {
+          // Ignore already unloaded errors
+        });
       }
     };
-  }, [sound, recording]);
+  }, [sound, recording, isRecordingUnloaded]);
 
   // Timer effect for preparation, speaking, and break
   useEffect(() => {
@@ -287,10 +293,11 @@ export default function SpeakingRoom() {
    */
   const saveRecording = async () => {
     console.log("Saving recording..");
-    if (!recording) return;
+    if (!recording) return null;
 
     try {
       await recording.stopAndUnloadAsync();
+      setIsRecordingUnloaded(true); // Mark as unloaded
       const uri = recording.getURI();
       console.log("Recording stopped and stored at", uri);
 
@@ -302,16 +309,45 @@ export default function SpeakingRoom() {
           fileName = `recording-part-${currentQuestion.part}-${Date.now()}.m4a`;
         }
 
-        const newPath = FileSystem.documentDirectory + fileName;
+        let newPath = uri;
 
-        await FileSystem.moveAsync({
-          from: uri,
-          to: newPath,
-        });
-        console.log("Recording saved to", newPath);
+        // Only move file on native platforms (not web)
+        if (Platform.OS !== "web" && FileSystem.documentDirectory) {
+          newPath = FileSystem.documentDirectory + fileName;
+
+          try {
+            await FileSystem.moveAsync({
+              from: uri,
+              to: newPath,
+            });
+            console.log("Recording saved to", newPath);
+          } catch (moveError) {
+            console.warn("Could not move file, using original URI:", moveError);
+            newPath = uri;
+          }
+        }
+
         setRecordingUri(newPath);
+        console.log("Recording URI for API:", newPath);
 
-        // Save or share the file based on platform
+        // Send recording to API
+        console.log("Sending recording to API...");
+        try {
+          setIsScoring(true);
+          const feedback = await speakingService.submitSpeakingAudio(newPath);
+          console.log("Feedback received from API:", feedback);
+          setApiFeedback(feedback); // Store feedback for later use
+          setIsScoring(false);
+          Alert.alert("Success", "Recording processed successfully!");
+          return feedback; // Return feedback for immediate use
+        } catch (apiError) {
+          setIsScoring(false);
+          console.error("Error sending to API:", apiError);
+          Alert.alert("API Error", "Failed to process recording. Please try again.");
+          return null;
+        }
+
+        // Save or share the file based on platform (skip web)
         if (Platform.OS === "android") {
           try {
             let directoryUri = androidPermissionUri;
@@ -340,12 +376,13 @@ export default function SpeakingRoom() {
             // Reset permission if it failed, might need to re-ask
             setAndroidPermissionUri(null);
           }
-        } else {
+        } else if (Platform.OS === "ios") {
           // iOS
           if (await Sharing.isAvailableAsync()) {
             await Sharing.shareAsync(newPath);
           }
         }
+        // Web: Skip file sharing for blob URIs
       }
 
       // Reset recording
@@ -385,11 +422,20 @@ export default function SpeakingRoom() {
       setRecordingUri(null);
     } else {
       // End of test - save recording (full test or last part)
-      await saveRecording();
+      const recordingFeedback = await saveRecording();
 
-      // BACKEND: Navigate to results with all recordings
-      // Pass recordingUris array to result screen
-      router.push("/speaking/result" as any);
+      // Navigate to results with feedback
+      if (recordingFeedback) {
+        router.push({
+          pathname: "/speaking/feedback",
+          params: {
+            feedback: JSON.stringify(recordingFeedback)
+          }
+        } as any);
+      } else {
+        // Fallback if no feedback
+        router.push("/speaking/feedback" as any);
+      }
     }
   };
 
@@ -544,6 +590,9 @@ export default function SpeakingRoom() {
           )}
         </View>
       </LinearGradient>
+
+      {/* Scoring Modal Component */}
+      <ScoringModal visible={isScoring} />
 
       {/* Break Time Modal - Covers the screen to hide next part content */}
       <Modal
