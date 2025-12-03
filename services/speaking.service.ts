@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { API_CONFIG } from '../constants/api.config';
 import { SpeakingHistory, SpeakingTestHistory } from '../types/database';
 import { SpeakingQuestion, SpeakingTopic, SpeakingPart } from '../types/speaking';
 
@@ -307,7 +308,7 @@ export const speakingService = {
 
         // Send to API
         console.log('[submitSpeakingAudio] Sending to API...');
-        const apiUrl = 'https://52e38967b03c.ngrok-free.app/process/speaking';
+        const apiUrl = API_CONFIG.IELTS_SPEAKING_API;
         console.log('[submitSpeakingAudio] API URL:', apiUrl);
 
         const apiResponse = await fetch(apiUrl, {
@@ -346,7 +347,7 @@ export const speakingService = {
           name: fileName,
         });
 
-        const apiUrl = 'https://52e38967b03c.ngrok-free.app/process/speaking';
+        const apiUrl = API_CONFIG.IELTS_SPEAKING_API;
         const apiResponse = await fetch(apiUrl, {
           method: 'POST',
           body: formData,

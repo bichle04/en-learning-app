@@ -4,6 +4,7 @@ import * as Speech from "expo-speech";
 import { Audio } from "expo-av";
 import * as FileSystem from "expo-file-system";
 import * as Sharing from "expo-sharing";
+import ScoringModal from "../../components/speaking/ScoringModal";
 
 const BREAK_TIME = 10;
 import { LinearGradient } from "expo-linear-gradient";
@@ -56,6 +57,7 @@ export default function SpeakingRoom() {
   const [androidPermissionUri, setAndroidPermissionUri] = useState<string | null>(null);
   const [apiFeedback, setApiFeedback] = useState<any>(null);
   const [isRecordingUnloaded, setIsRecordingUnloaded] = useState(false);
+  const [isScoring, setIsScoring] = useState(false);
 
   // Get questions based on mode
   const [questions, setQuestions] = useState<SpeakingQuestion[]>([]);
@@ -331,12 +333,15 @@ export default function SpeakingRoom() {
         // Send recording to API
         console.log("Sending recording to API...");
         try {
+          setIsScoring(true);
           const feedback = await speakingService.submitSpeakingAudio(newPath);
           console.log("Feedback received from API:", feedback);
           setApiFeedback(feedback); // Store feedback for later use
+          setIsScoring(false);
           Alert.alert("Success", "Recording processed successfully!");
           return feedback; // Return feedback for immediate use
         } catch (apiError) {
+          setIsScoring(false);
           console.error("Error sending to API:", apiError);
           Alert.alert("API Error", "Failed to process recording. Please try again.");
           return null;
@@ -585,6 +590,9 @@ export default function SpeakingRoom() {
           )}
         </View>
       </LinearGradient>
+
+      {/* Scoring Modal Component */}
+      <ScoringModal visible={isScoring} />
 
       {/* Break Time Modal - Covers the screen to hide next part content */}
       <Modal

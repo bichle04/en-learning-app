@@ -40,3 +40,7 @@ yarn-error.*
 app-example
 
 .vscode
+
+
+.shared/
+.github/
