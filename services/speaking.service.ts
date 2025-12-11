@@ -348,9 +348,10 @@ export const speakingService = {
     }
   },
 
-  async submitSpeakingAudio(audioFilePath: string) {
+  async submitSpeakingAudio(audioFilePath: string, questions?: string[]) {
     try {
       console.log('[submitSpeakingAudio] Audio path:', audioFilePath);
+      console.log('[submitSpeakingAudio] Questions:', questions);
 
       // Get filename from path - ensure it has .wav extension
       let fileName = 'audio.wav';
@@ -374,6 +375,13 @@ export const speakingService = {
         // Create FormData with blob directly
         const formData = new FormData();
         formData.append('file', blob, fileName);
+
+        // Add questions to FormData if provided
+        if (questions && questions.length > 0) {
+          questions.forEach(question => {
+            formData.append('questions', question);
+          });
+        }
 
         // Send to API
         console.log('[submitSpeakingAudio] Sending to API...');
@@ -419,6 +427,13 @@ export const speakingService = {
           type: 'audio/mp4',
           name: fileName,
         });
+
+        // Add questions to FormData if provided
+        if (questions && questions.length > 0) {
+          questions.forEach(question => {
+            (formData as any).append('questions', question);
+          });
+        }
 
         const apiUrl = API_CONFIG.IELTS_SPEAKING_API;
         if (!apiUrl) {

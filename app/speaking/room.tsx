@@ -371,12 +371,25 @@ export default function SpeakingRoom() {
         setRecordingUri(newPath);
         console.log("Recording URI for API:", newPath);
 
+        // Collect questions from the current part
+        let questionsForAPI: string[] = [];
+        if (mode === "test") {
+          // For test mode, collect all questions from all parts
+          questionsForAPI = questions.map(q => q.question);
+        } else {
+          // For practice mode, collect questions only from the current part
+          questionsForAPI = questions
+            .filter(q => q.part === currentQuestion.part)
+            .map(q => q.question);
+        }
+        console.log("Questions to send to API:", questionsForAPI);
+
         // Send recording to API
         console.log("Sending recording to API...");
         try {
           setIsScoring(true);
           setScoringStatus('analyzing');
-          const feedback = await speakingService.submitSpeakingAudio(newPath);
+          const feedback = await speakingService.submitSpeakingAudio(newPath, questionsForAPI);
           console.log("Feedback received from API:", feedback);
           setApiFeedback(feedback); // Store feedback for later use
 
