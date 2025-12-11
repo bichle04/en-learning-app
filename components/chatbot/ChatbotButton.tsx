@@ -6,6 +6,7 @@ import {
     Modal,
     SafeAreaView,
     Animated,
+    Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeColor } from '@/hooks/useThemeColor';
@@ -38,11 +39,15 @@ const ChatbotButton = () => {
         <>
             {/* Floating Button */}
             <TouchableOpacity
-                style={[styles.floatingButton, { backgroundColor: tintColor }]}
+                style={styles.floatingButton}
                 onPress={openModal}
                 activeOpacity={0.8}
             >
-                <Ionicons name="chatbubble" size={24} color="white" />
+                <Image
+                    source={require('@/assets/images/chatbot.png')}
+                    style={styles.chatbotIcon}
+                    resizeMode="contain"
+                />
             </TouchableOpacity>
 
             {/* Chatbot Modal */}
@@ -53,18 +58,8 @@ const ChatbotButton = () => {
                 onRequestClose={closeModal}
             >
                 <SafeAreaView style={styles.modalContainer}>
-                    {/* Close Button */}
-                    <View style={styles.closeButtonContainer}>
-                        <TouchableOpacity
-                            style={styles.closeButton}
-                            onPress={closeModal}
-                        >
-                            <Ionicons name="close" size={28} color="#333" />
-                        </TouchableOpacity>
-                    </View>
-
-                    {/* Chatbot Component */}
-                    <Chatbot />
+                    {/* Chatbot Component with close function */}
+                    <Chatbot onClose={closeModal} />
                 </SafeAreaView>
             </Modal>
         </>
@@ -74,11 +69,12 @@ const ChatbotButton = () => {
 const styles = StyleSheet.create({
     floatingButton: {
         position: 'absolute',
-        bottom: 90,
+        bottom: 160,
         right: 20,
-        width: 56,
-        height: 56,
-        borderRadius: 28,
+        width: 60,
+        height: 60,
+        borderRadius: 30,
+        backgroundColor: '#A8D8FF', 
         justifyContent: 'center',
         alignItems: 'center',
         shadowColor: '#000',
@@ -92,18 +88,14 @@ const styles = StyleSheet.create({
         zIndex: 999,
     },
 
+    chatbotIcon: {
+        width: 36,
+        height: 36,
+    },
+
     modalContainer: {
         flex: 1,
-        backgroundColor: '#fff',
-    },
-
-    closeButtonContainer: {
-        paddingHorizontal: 12,
-        paddingVertical: 8,
-    },
-
-    closeButton: {
-        padding: 8,
+        backgroundColor: '#FFFFFF',
     },
 });
 

@@ -9,22 +9,32 @@ import {
     KeyboardAvoidingView,
     Platform,
     ActivityIndicator,
+    Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import { callDifyApi, getDifyFallbackResponse } from '@/services/dify.service';
+import { callGeminiApi, getGeminiFallbackResponse } from '@/services/gemini.service';
 
-const Chatbot = () => {
+const Chatbot = ({ onClose }) => {
     const [messages, setMessages] = useState([
         {
             id: 1,
-            text: 'Xin chào! Tôi là trợ lý học tiếng Anh của bạn. Tôi có thể giúp bạn học từ vựng, luyện nghe, nói, viết và còn nhiều hơn nữa. Bạn cần giúp gì?',
+            text: 'Xin chào! Tôi là trợ lý học tiếng Anh của bạn. Bạn muốn gì?',
             sender: 'bot',
             timestamp: new Date(),
+        },
+        {
+            id: 2,
+            text: 'Vui lòng chọn một trong các tùy chọn bên dưới:',
+            sender: 'bot',
+            timestamp: new Date(),
+            showOptions: true,
         },
     ]);
     const [inputText, setInputText] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
+    const [chatMode, setChatMode] = useState(null); // null, 'dify', or 'gemini'
 
     const scrollViewRef = useRef();
 
@@ -32,9 +42,44 @@ const Chatbot = () => {
     const textColor = useThemeColor({}, 'text');
     const tintColor = useThemeColor({}, 'tint');
 
-    // Send message to Dify AI
+    // Xử lý lựa chọn mode
+    const handleModeSelection = (mode) => {
+        setChatMode(mode);
+
+        let confirmationText = '';
+        if (mode === 'dify') {
+            confirmationText = 'Bạn đã chọn: Tư vấn khóa học. Tôi sẽ giúp bạn tìm khóa học phù hợp nhất!';
+        } else if (mode === 'gemini') {
+            confirmationText = 'Bạn đã chọn: Hỏi đáp học tập. Tôi sẽ trả lời các câu hỏi về tiếng Anh của bạn!';
+        }
+
+        const confirmMessage = {
+            id: Date.now(),
+            text: confirmationText,
+            sender: 'bot',
+            timestamp: new Date(),
+        };
+
+        setMessages((prev) => [...prev, confirmMessage]);
+    };
+
+
+
+    // Send message to AI (Dify or Gemini)
     const sendMessage = async () => {
         if (inputText.trim() === '') return;
+
+        // Nếu chưa chọn mode, yêu cầu chọn
+        if (!chatMode) {
+            const warningMessage = {
+                id: Date.now(),
+                text: '⚠️ Vui lòng chọn một chế độ trước khi gửi tin nhắn.',
+                sender: 'bot',
+                timestamp: new Date(),
+            };
+            setMessages((prev) => [...prev, warningMessage]);
+            return;
+        }
 
         // Add user message
         const userMessage = {
@@ -50,8 +95,15 @@ const Chatbot = () => {
         setIsProcessing(true);
 
         try {
-            // Call Dify API
-            const aiResponse = await callDifyApi(messageToProcess);
+            let aiResponse;
+
+            if (chatMode === 'dify') {
+                // Call Dify API
+                aiResponse = await callDifyApi(messageToProcess);
+            } else if (chatMode === 'gemini') {
+                // Call Gemini API
+                aiResponse = await callGeminiApi(messageToProcess);
+            }
 
             const aiMessage = {
                 id: Date.now() + 1,
@@ -63,7 +115,13 @@ const Chatbot = () => {
             setMessages((prev) => [...prev, aiMessage]);
         } catch (error) {
             // Fallback response if API fails
-            const fallbackResponse = getDifyFallbackResponse();
+            let fallbackResponse;
+
+            if (chatMode === 'dify') {
+                fallbackResponse = getDifyFallbackResponse();
+            } else if (chatMode === 'gemini') {
+                fallbackResponse = getGeminiFallbackResponse();
+            }
 
             const aiMessage = {
                 id: Date.now() + 1,
@@ -98,8 +156,12 @@ const Chatbot = () => {
             >
                 {isBot && (
                     <View style={styles.botAvatarContainer}>
-                        <View style={[styles.botAvatar, { backgroundColor: tintColor }]}>
-                            <Ionicons name="chatbubble" size={20} color="white" />
+                        <View style={styles.botAvatar}>
+                            <Image
+                                source={require('@/assets/images/chatbot.png')}
+                                style={styles.botAvatarImage}
+                                resizeMode="contain"
+                            />
                         </View>
                     </View>
                 )}
@@ -108,15 +170,15 @@ const Chatbot = () => {
                     style={[
                         styles.messageBubble,
                         isBot
-                            ? [styles.botBubble, { backgroundColor: '#f0f0f0' }]
-                            : [styles.userBubble, { backgroundColor: tintColor }],
+                            ? [styles.botBubble, { backgroundColor: '#F5F7FA' }]
+                            : [styles.userBubble, { backgroundColor: '#E3F2FD' }],
                     ]}
                 >
                     <Text
                         style={[
                             styles.messageText,
                             {
-                                color: isBot ? '#333' : 'white',
+                                color: isBot ? '#2C3E50' : '#1565C0',
                             },
                         ]}
                     >
@@ -126,7 +188,7 @@ const Chatbot = () => {
                         style={[
                             styles.timestamp,
                             {
-                                color: isBot ? '#999' : 'rgba(255,255,255,0.7)',
+                                color: isBot ? '#95A5A6' : '#7B8794',
                             },
                         ]}
                     >
@@ -135,11 +197,40 @@ const Chatbot = () => {
                             minute: '2-digit',
                         })}
                     </Text>
+
+                    {/* Hiển thị nút tùy chọn */}
+                    {message.showOptions && !chatMode && (
+                        <View style={styles.optionsContainer}>
+                            <TouchableOpacity
+                                style={[
+                                    styles.optionButton,
+                                    { backgroundColor: '#42A5F5' },
+                                ]}
+                                onPress={() => handleModeSelection('dify')}
+                            >
+                                <Ionicons name="school" size={20} color="white" />
+                                <Text style={styles.optionText}>Tư vấn khóa học</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={[
+                                    styles.optionButton,
+                                    { backgroundColor: '#66BB6A' },
+                                ]}
+                                onPress={() => handleModeSelection('gemini')}
+                            >
+                                <Ionicons name="help-circle" size={20} color="white" />
+                                <Text style={styles.optionText}>Hỏi đáp học tập</Text>
+                            </TouchableOpacity>
+                        </View>
+                    )}
+
+
                 </View>
 
                 {!isBot && (
                     <View style={styles.userAvatarContainer}>
-                        <View style={[styles.userAvatar, { backgroundColor: tintColor }]}>
+                        <View style={[styles.userAvatar, { backgroundColor: '#90CAF9' }]}>
                             <Ionicons name="person" size={20} color="white" />
                         </View>
                     </View>
@@ -151,23 +242,27 @@ const Chatbot = () => {
     return (
         <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={[styles.container, { backgroundColor }]}
+            style={styles.container}
         >
             {/* Header */}
-            <View style={[styles.header, { borderBottomColor: '#e0e0e0' }]}>
+            <View style={styles.header}>
                 <View style={styles.headerContent}>
-                    <View style={[styles.headerAvatar, { backgroundColor: tintColor }]}>
-                        <Ionicons name="chatbubbles" size={24} color="white" />
+                    <View style={styles.headerAvatar}>
+                        <Image
+                            source={require('@/assets/images/chatbot.png')}
+                            style={styles.headerAvatarImage}
+                            resizeMode="contain"
+                        />
                     </View>
                     <View style={styles.headerInfo}>
-                        <Text style={[styles.headerTitle, { color: textColor }]}>
+                        <Text style={styles.headerTitle}>
                             Trợ lý học tiếng Anh
                         </Text>
                         <Text style={styles.headerStatus}>Luôn sẵn sàng giúp bạn</Text>
                     </View>
                 </View>
-                <TouchableOpacity>
-                    <Ionicons name="ellipsis-vertical" size={24} color={textColor} />
+                <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+                    <Ionicons name="close" size={28} color="#FFFFFF" />
                 </TouchableOpacity>
             </View>
 
@@ -199,7 +294,7 @@ const Chatbot = () => {
                         style={[
                             styles.input,
                             {
-                                color: textColor,
+                                color: '#000000', // Màu đen rõ ràng cho text
                                 borderColor: '#e0e0e0',
                             },
                         ]}
@@ -229,7 +324,7 @@ const Chatbot = () => {
                         style={[
                             styles.sendButton,
                             {
-                                backgroundColor: isProcessing ? '#ccc' : '#FF6B9D',
+                                backgroundColor: isProcessing ? '#ccc' : '#1E90FF', // Màu xanh từ Speaking UI
                             },
                         ]}
                         onPress={sendMessage}
@@ -246,6 +341,7 @@ const Chatbot = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+        backgroundColor: '#FFFFFF',
     },
 
     // Header styles
@@ -255,7 +351,9 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
+        backgroundColor: '#2196F3',
         borderBottomWidth: 1,
+        borderBottomColor: '#E3F2FD',
     },
     headerContent: {
         flexDirection: 'row',
@@ -266,9 +364,14 @@ const styles = StyleSheet.create({
         width: 48,
         height: 48,
         borderRadius: 24,
+        backgroundColor: '#FFFFFF',
         justifyContent: 'center',
         alignItems: 'center',
         marginRight: 12,
+    },
+    headerAvatarImage: {
+        width: 32,
+        height: 32,
     },
     headerInfo: {
         flex: 1,
@@ -277,10 +380,16 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: '600',
         marginBottom: 2,
+        color: '#FFFFFF',
+    },
+    closeButton: {
+        padding: 8,
+        borderRadius: 20,
+        backgroundColor: 'rgba(255, 255, 255, 0.2)',
     },
     headerStatus: {
         fontSize: 12,
-        color: '#999',
+        color: 'rgba(255, 255, 255, 0.8)',
     },
 
     // Messages container
@@ -312,8 +421,13 @@ const styles = StyleSheet.create({
         width: 32,
         height: 32,
         borderRadius: 16,
+        backgroundColor: '#FFFFFF',
         justifyContent: 'center',
         alignItems: 'center',
+    },
+    botAvatarImage: {
+        width: 24,
+        height: 24,
     },
     userAvatar: {
         width: 32,
@@ -327,12 +441,24 @@ const styles = StyleSheet.create({
         paddingHorizontal: 12,
         paddingVertical: 10,
         borderRadius: 16,
+        shadowColor: '#000',
+        shadowOffset: {
+            width: 0,
+            height: 1,
+        },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+        elevation: 2,
     },
     botBubble: {
         borderBottomLeftRadius: 4,
+        borderWidth: 0.5,
+        borderColor: '#DDE7F0',
     },
     userBubble: {
         borderBottomRightRadius: 4,
+        borderWidth: 0.5,
+        borderColor: '#BBDEFB',
     },
     messageText: {
         fontSize: 14,
@@ -341,6 +467,25 @@ const styles = StyleSheet.create({
     timestamp: {
         fontSize: 11,
         marginTop: 4,
+    },
+
+    // Options container
+    optionsContainer: {
+        marginTop: 12,
+        gap: 8,
+    },
+    optionButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        borderRadius: 8,
+        gap: 8,
+    },
+    optionText: {
+        color: 'white',
+        fontSize: 13,
+        fontWeight: '600',
     },
 
     // Loading indicator
