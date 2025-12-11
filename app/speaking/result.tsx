@@ -36,8 +36,54 @@ export default function SpeakingResultScreen() {
   const [fullFeedback, setFullFeedback] = useState<any>(null);
 
   useEffect(() => {
-    fetchResult();
-  }, [params.id, params.type]);
+    if (params.feedback) {
+      processDirectFeedback();
+    } else {
+      fetchResult();
+    }
+  }, [params.id, params.type, params.feedback]);
+
+  const processDirectFeedback = () => {
+    try {
+      setLoading(true);
+      const feedbackData = typeof params.feedback === 'string'
+        ? JSON.parse(params.feedback)
+        : params.feedback;
+
+      if (!feedbackData) {
+        setError('Invalid feedback data');
+        setLoading(false);
+        return;
+      }
+
+      // Store full feedback for navigation
+      setFullFeedback(feedbackData);
+
+      const overallScore = Number(feedbackData.overall_score) || 0;
+      const details = feedbackData.details || {};
+
+      const formattedResult: SpeakingResult = {
+        overallScore,
+        fluencyScore: details.fluency?.score || 0,
+        lexicalScore: details.vocabulary?.score || 0,
+        grammarScore: details.grammar?.score || 0,
+        pronunciationScore: details.pronunciation?.score || 0,
+        partScores: [
+          { part: 1, score: details.fluency?.score || 0 },
+          { part: 2, score: details.grammar?.score || 0 },
+          { part: 3, score: details.pronunciation?.score || 0 },
+        ],
+      };
+
+      setResult(formattedResult);
+      setError(null);
+    } catch (err) {
+      console.error('Error processing feedback:', err);
+      setError('Failed to process result');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const fetchResult = async () => {
     try {

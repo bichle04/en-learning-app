@@ -6,9 +6,10 @@ const { width } = Dimensions.get('window');
 
 interface ScoringModalProps {
     visible: boolean;
+    status?: 'analyzing' | 'success' | 'error';
 }
 
-export default function ScoringModal({ visible }: ScoringModalProps) {
+export default function ScoringModal({ visible, status = 'analyzing' }: ScoringModalProps) {
     return (
         <Modal
             visible={visible}
@@ -18,7 +19,7 @@ export default function ScoringModal({ visible }: ScoringModalProps) {
         >
             <View style={styles.overlay}>
                 <LinearGradient
-                    colors={['#1E90FF', '#00BFFF']}
+                    colors={status === 'success' ? ['#4CAF50', '#45a049'] : ['#1E90FF', '#00BFFF']}
                     style={styles.container}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
@@ -30,48 +31,64 @@ export default function ScoringModal({ visible }: ScoringModalProps) {
                     <View style={[styles.decorStar, { bottom: 60, right: 30 }]} />
 
                     <View style={styles.content}>
-                        {/* Animated emoji */}
-                        <Text style={styles.mainEmoji}>🎤</Text>
-
-                        {/* Title */}
-                        <Text style={styles.title}>Evaluating Your Response</Text>
-                        <Text style={styles.subtitle}>
-                            Please wait while we analyze your speaking...
-                        </Text>
-
-                        {/* Loading animation dots */}
-                        <View style={styles.dotsContainer}>
-                            <View style={[styles.dot, styles.dotAnimated1]} />
-                            <View style={[styles.dot, styles.dotAnimated2]} />
-                            <View style={[styles.dot, styles.dotAnimated3]} />
-                        </View>
-
-                        {/* Progress steps */}
-                        <View style={styles.progressContainer}>
-                            <View style={styles.progressStep}>
-                                <View style={styles.stepIconBox}>
-                                    <Text style={styles.stepIcon}>✓</Text>
+                        {status === 'success' ? (
+                            <>
+                                <Text style={styles.mainEmoji}>🎉</Text>
+                                <Text style={styles.title}>Congratulations!</Text>
+                                <Text style={styles.subtitle}>
+                                    You have completed the speaking test.
+                                </Text>
+                                <View style={styles.successIconBox}>
+                                    <Text style={styles.successIcon}>✓</Text>
                                 </View>
-                                <Text style={styles.stepText}>Recording received</Text>
-                            </View>
+                                <Text style={styles.helpText}>Redirecting to results...</Text>
+                            </>
+                        ) : (
+                            <>
+                                {/* Animated emoji */}
+                                <Text style={styles.mainEmoji}>🎤</Text>
 
-                            <View style={styles.progressStep}>
-                                <View style={styles.stepIconBox}>
-                                    <Text style={styles.stepIcon}>⟳</Text>
+                                {/* Title */}
+                                <Text style={styles.title}>Evaluating Your Response</Text>
+                                <Text style={styles.subtitle}>
+                                    Please wait while we analyze your speaking...
+                                </Text>
+
+                                {/* Loading animation dots */}
+                                <View style={styles.dotsContainer}>
+                                    <View style={[styles.dot, styles.dotAnimated1]} />
+                                    <View style={[styles.dot, styles.dotAnimated2]} />
+                                    <View style={[styles.dot, styles.dotAnimated3]} />
                                 </View>
-                                <Text style={styles.stepText}>Analyzing speech...</Text>
-                            </View>
 
-                            <View style={styles.progressStep}>
-                                <View style={styles.stepIconBox}>
-                                    <Text style={styles.stepIcon}>○</Text>
+                                {/* Progress steps */}
+                                <View style={styles.progressContainer}>
+                                    <View style={styles.progressStep}>
+                                        <View style={styles.stepIconBox}>
+                                            <Text style={styles.stepIcon}>✓</Text>
+                                        </View>
+                                        <Text style={styles.stepText}>Recording received</Text>
+                                    </View>
+
+                                    <View style={styles.progressStep}>
+                                        <View style={styles.stepIconBox}>
+                                            <Text style={styles.stepIcon}>⟳</Text>
+                                        </View>
+                                        <Text style={styles.stepText}>Analyzing speech...</Text>
+                                    </View>
+
+                                    <View style={styles.progressStep}>
+                                        <View style={styles.stepIconBox}>
+                                            <Text style={styles.stepIcon}>○</Text>
+                                        </View>
+                                        <Text style={styles.stepText}>Generating feedback</Text>
+                                    </View>
                                 </View>
-                                <Text style={styles.stepText}>Generating feedback</Text>
-                            </View>
-                        </View>
 
-                        {/* Help text */}
-                        <Text style={styles.helpText}>This may take a few moments...</Text>
+                                {/* Help text */}
+                                <Text style={styles.helpText}>This may take a few moments...</Text>
+                            </>
+                        )}
                     </View>
                 </LinearGradient>
             </View>
@@ -172,6 +189,22 @@ const styles = StyleSheet.create({
     stepText: {
         fontSize: 14,
         color: 'rgba(255, 255, 255, 0.95)',
+    },
+    successIconBox: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        backgroundColor: 'rgba(255, 255, 255, 0.2)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 20,
+        borderWidth: 2,
+        borderColor: '#FFFFFF',
+    },
+    successIcon: {
+        fontSize: 40,
+        color: '#FFFFFF',
+        fontWeight: 'bold',
     },
     helpText: {
         fontSize: 12,

@@ -60,6 +60,7 @@ export default function SpeakingRoom() {
   const [apiFeedback, setApiFeedback] = useState<any>(null);
   const [isRecordingUnloaded, setIsRecordingUnloaded] = useState(false);
   const [isScoring, setIsScoring] = useState(false);
+  const [scoringStatus, setScoringStatus] = useState<'analyzing' | 'success' | 'error'>('analyzing');
 
   // Get questions based on mode
   const [questions, setQuestions] = useState<SpeakingQuestion[]>([]);
@@ -293,7 +294,7 @@ export default function SpeakingRoom() {
   /**
    * Save the recording
    */
-  const saveRecording = async () => {
+  const saveRecording = async (isFinal: boolean = true) => {
     console.log("Saving recording..");
     if (!recording) return null;
 
@@ -336,6 +337,7 @@ export default function SpeakingRoom() {
         console.log("Sending recording to API...");
         try {
           setIsScoring(true);
+          setScoringStatus('analyzing');
           const feedback = await speakingService.submitSpeakingAudio(newPath);
           console.log("Feedback received from API:", feedback);
           setApiFeedback(feedback); // Store feedback for later use
@@ -361,8 +363,13 @@ export default function SpeakingRoom() {
             }
           }
 
+          if (isFinal) {
+            setScoringStatus('success');
+            // Wait for 2 seconds to show success message
+            await new Promise(resolve => setTimeout(resolve, 2000));
+          }
+
           setIsScoring(false);
-          Alert.alert("Success", "Recording processed successfully!");
           return feedback; // Return feedback for immediate use
         } catch (apiError) {
           setIsScoring(false);
@@ -430,7 +437,7 @@ export default function SpeakingRoom() {
       if (currentQuestion.part !== nextQuestion.part) {
         // Only save intermediate recordings in practice mode
         if (mode === "practice") {
-          await saveRecording();
+          await saveRecording(false);
         }
 
         setCurrentQuestionIndex(nextIndex);
@@ -448,19 +455,19 @@ export default function SpeakingRoom() {
       setRecordingUri(null);
     } else {
       // End of test - save recording (full test or last part)
-      const recordingFeedback = await saveRecording();
+      const recordingFeedback = await saveRecording(true);
 
       // Navigate to results with feedback
       if (recordingFeedback) {
         router.push({
-          pathname: "/speaking/feedback",
+          pathname: "/speaking/result",
           params: {
             feedback: JSON.stringify(recordingFeedback)
           }
         } as any);
       } else {
         // Fallback if no feedback
-        router.push("/speaking/feedback" as any);
+        router.push("/speaking/result" as any);
       }
     }
   };
@@ -618,7 +625,7 @@ export default function SpeakingRoom() {
       </LinearGradient>
 
       {/* Scoring Modal Component */}
-      <ScoringModal visible={isScoring} />
+      <ScoringModal visible={isScoring} status={scoringStatus} />
 
       {/* Break Time Modal - Covers the screen to hide next part content */}
       <Modal
