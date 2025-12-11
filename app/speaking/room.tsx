@@ -10,7 +10,7 @@ import { useAuth } from "../../contexts/AuthContext";
 const BREAK_TIME = 10;
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
-import { Pause, Volume2, X } from "lucide-react-native";
+import { Pause, Volume2, X, ChevronRight } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import {
   Alert,
@@ -577,6 +577,19 @@ export default function SpeakingRoom() {
               <View style={styles.timerBox}>
                 <Text style={styles.timerLabel}>Preparation time</Text>
                 <Text style={styles.timerValue}>{formatTime(prepTimeLeft)}</Text>
+                {/* Next button for Part 2 - allows user to skip preparation when ready (only in practice mode) */}
+                {mode === "practice" && (
+                  <TouchableOpacity
+                    style={styles.skipNextButton}
+                    onPress={() => {
+                      setPrepTimeLeft(0);
+                      startRecording();
+                    }}
+                  >
+                    <Text style={styles.skipNextButtonText}>Start Speaking</Text>
+                    <ChevronRight size={20} color="#FFFFFF" />
+                  </TouchableOpacity>
+                )}
               </View>
             )}
 
@@ -584,6 +597,24 @@ export default function SpeakingRoom() {
               <View style={styles.timerBox}>
                 <Text style={styles.timerLabel}>Time remaining</Text>
                 <Text style={styles.timerValue}>{formatTime(speakTimeLeft)}</Text>
+                {/* Next button - allows user to skip to next question when done answering (only in practice mode) */}
+                {mode === "practice" && (
+                  <TouchableOpacity
+                    style={styles.skipNextButton}
+                    onPress={async () => {
+                      await pauseRecording();
+                      // Small delay to ensure state updates
+                      setTimeout(() => {
+                        handleNextQuestion();
+                      }, 100);
+                    }}
+                  >
+                    <Text style={styles.skipNextButtonText}>
+                      {currentQuestionIndex < questions.length - 1 ? "Next" : "Finish"}
+                    </Text>
+                    <ChevronRight size={20} color="#FFFFFF" />
+                  </TouchableOpacity>
+                )}
               </View>
             )}
 
@@ -795,6 +826,24 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "bold",
     color: "#1E90FF",
+  },
+  skipNextButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.3)",
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.5)",
+  },
+  skipNextButtonText: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#FFFFFF",
+    marginRight: 4,
   },
   bottomSection: {
     backgroundColor: "#FFFFFF",
