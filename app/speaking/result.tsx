@@ -33,6 +33,7 @@ export default function SpeakingResultScreen() {
   const [result, setResult] = useState<SpeakingResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [fullFeedback, setFullFeedback] = useState<any>(null);
 
   useEffect(() => {
     fetchResult();
@@ -61,16 +62,30 @@ export default function SpeakingResultScreen() {
       const details = historyItem.details;
       const overallScore = Number(historyItem.overall_score) || 0;
 
+      // Store full feedback for navigation
+      const feedbackToPass = {
+        overall_score: details.overall_score || overallScore,
+        transcript: details.transcript || '',
+        details: {
+          fluency: details.fluency,
+          pronunciation: details.pronunciation,
+          grammar: details.grammar,
+          vocabulary: details.vocabulary,
+        },
+        general_suggestions: historyItem.general_suggestions || [],
+      };
+      setFullFeedback(feedbackToPass);
+
       const formattedResult: SpeakingResult = {
         overallScore,
-        fluencyScore: details.fluency || 0,
-        lexicalScore: details.vocabulary || details.lexical || 0,
-        grammarScore: details.grammar || 0,
-        pronunciationScore: details.pronunciation || 0,
+        fluencyScore: details.fluency?.score || 0,
+        lexicalScore: details.vocabulary?.score || 0,
+        grammarScore: details.grammar?.score || 0,
+        pronunciationScore: details.pronunciation?.score || 0,
         partScores: [
-          { part: 1, score: details.fluency || 0 },
-          { part: 2, score: details.grammar || 0 },
-          { part: 3, score: details.pronunciation || 0 },
+          { part: 1, score: details.fluency?.score || 0 },
+          { part: 2, score: details.grammar?.score || 0 },
+          { part: 3, score: details.pronunciation?.score || 0 },
         ],
       };
 
@@ -92,8 +107,17 @@ export default function SpeakingResultScreen() {
   };
 
   const handleViewDetails = () => {
-    // Navigate to feedback screen with result ID
-    router.push("/speaking/feedback" as any);
+    // Navigate to feedback screen with full feedback data
+    if (fullFeedback) {
+      router.push({
+        pathname: "/speaking/feedback",
+        params: {
+          feedback: JSON.stringify(fullFeedback)
+        }
+      } as any);
+    } else {
+      router.push("/speaking/feedback" as any);
+    }
   };
 
   const handleBackToHome = () => {

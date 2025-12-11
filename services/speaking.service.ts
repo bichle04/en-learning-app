@@ -288,12 +288,35 @@ export const speakingService = {
     try {
       console.log('[saveSpeakingFeedback] Saving feedback for user:', userId);
 
-      // Transform API response to match database schema
+      // Save complete API response with all details
       const detailsData = {
-        fluency: feedback.details.fluency.score,
-        pronunciation: feedback.details.pronunciation.score,
-        grammar: feedback.details.grammar.score,
-        vocabulary: feedback.details.vocabulary.score,
+        overall_score: feedback.overall_score,
+        transcript: feedback.transcript,
+        fluency: {
+          score: feedback.details.fluency.score,
+          evaluation: feedback.details.fluency.evaluation,
+          errors: feedback.details.fluency.errors,
+          feedback: feedback.details.fluency.feedback,
+          wpm: feedback.details.fluency.wpm,
+        },
+        pronunciation: {
+          score: feedback.details.pronunciation.score,
+          evaluation: feedback.details.pronunciation.evaluation,
+          errors: feedback.details.pronunciation.errors,
+          feedback: feedback.details.pronunciation.feedback,
+        },
+        grammar: {
+          score: feedback.details.grammar.score,
+          evaluation: feedback.details.grammar.evaluation,
+          errors: feedback.details.grammar.errors,
+          feedback: feedback.details.grammar.feedback,
+        },
+        vocabulary: {
+          score: feedback.details.vocabulary.score,
+          evaluation: feedback.details.vocabulary.evaluation,
+          errors: feedback.details.vocabulary.errors,
+          feedback: feedback.details.vocabulary.feedback,
+        },
       };
 
       const generalSuggestions = feedback.general_suggestions || [];
