@@ -5,6 +5,7 @@ import { Audio } from "expo-av";
 import * as FileSystem from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import ScoringModal from "../../components/speaking/ScoringModal";
+import { useAuth } from "../../contexts/AuthContext";
 
 const BREAK_TIME = 10;
 import { LinearGradient } from "expo-linear-gradient";
@@ -38,6 +39,7 @@ export default function SpeakingRoom() {
   const params = useLocalSearchParams();
   const mode = params.mode as "practice" | "test";
   const topicId = params.topicId as string;
+  const { user } = useAuth();
 
   // State management
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -337,6 +339,28 @@ export default function SpeakingRoom() {
           const feedback = await speakingService.submitSpeakingAudio(newPath);
           console.log("Feedback received from API:", feedback);
           setApiFeedback(feedback); // Store feedback for later use
+
+          // Save feedback to database if user is logged in
+          if (user?.id) {
+            try {
+              console.log("Saving feedback to database for user:", user.id);
+              const firstQuestion = questions[0];
+              const partNumber = currentQuestion.part;
+              const partId = firstQuestion?.topicId ? parseInt(firstQuestion.topicId) : 1;
+
+              await speakingService.saveSpeakingFeedback(
+                user.id,
+                partNumber,
+                partId,
+                feedback
+              );
+              console.log("Feedback saved to database successfully");
+            } catch (dbError) {
+              console.error("Error saving feedback to database:", dbError);
+              // Continue anyway - API feedback is still available
+            }
+          }
+
           setIsScoring(false);
           Alert.alert("Success", "Recording processed successfully!");
           return feedback; // Return feedback for immediate use
@@ -356,8 +380,10 @@ export default function SpeakingRoom() {
             if (!directoryUri) {
               const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
               if (permissions.granted) {
-                directoryUri = permissions.directoryUri;
-                setAndroidPermissionUri(directoryUri);
+                directoryUri = (permissions as any).directoryUri || null;
+                if (directoryUri) {
+                  setAndroidPermissionUri(directoryUri);
+                }
               } else {
                 Alert.alert("Permission denied", "Cannot save recording without folder permission.");
                 return;
@@ -366,7 +392,7 @@ export default function SpeakingRoom() {
 
             if (directoryUri) {
               const base64 = await FileSystem.readAsStringAsync(newPath, { encoding: FileSystem.EncodingType.Base64 });
-              const createdUri = await FileSystem.StorageAccessFramework.createFileAsync(directoryUri, fileName, 'audio/mp4');
+              const createdUri = await FileSystem.StorageAccessFramework.createFileAsync(directoryUri as string, fileName, 'audio/mp4');
               await FileSystem.writeAsStringAsync(createdUri, base64, { encoding: FileSystem.EncodingType.Base64 });
               Alert.alert("Success", "Recording saved successfully!");
             }

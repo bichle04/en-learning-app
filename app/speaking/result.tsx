@@ -11,7 +11,7 @@ import {
   View,
   ActivityIndicator
 } from "react-native";
-import { MOCK_FEEDBACK } from "./feedback";
+import { speakingService } from "../../services/speaking.service";
 
 const { width } = Dimensions.get("window");
 
@@ -30,20 +30,58 @@ interface SpeakingResult {
 export default function SpeakingResultScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const [result, setResult] = useState<SpeakingResult | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // TODO: Backend - Get result from params or fetch from API
-  // const { testId, mode } = params;
-  const result = {
-    overallScore: MOCK_FEEDBACK.overall_score,
-    fluencyScore: MOCK_FEEDBACK.details.fluency.score,
-    lexicalScore: MOCK_FEEDBACK.details.vocabulary.score,
-    grammarScore: MOCK_FEEDBACK.details.grammar.score,
-    pronunciationScore: MOCK_FEEDBACK.details.pronunciation.score,
-    partScores: [
-      { part: 1, score: MOCK_FEEDBACK.details.fluency.score },
-      { part: 2, score: MOCK_FEEDBACK.details.grammar.score },
-      { part: 3, score: MOCK_FEEDBACK.details.pronunciation.score },
-    ],
+  useEffect(() => {
+    fetchResult();
+  }, [params.id, params.type]);
+
+  const fetchResult = async () => {
+    try {
+      setLoading(true);
+      const id = params.id ? parseInt(params.id as string) : null;
+      const type = params.type as 'practice' | 'test' | undefined;
+
+      if (!id || !type) {
+        setError('Invalid parameters');
+        setLoading(false);
+        return;
+      }
+
+      const historyItem = await speakingService.getHistoryItem(id, type);
+
+      if (!historyItem || !historyItem.details) {
+        setError('No data found');
+        setLoading(false);
+        return;
+      }
+
+      const details = historyItem.details;
+      const overallScore = Number(historyItem.overall_score) || 0;
+
+      const formattedResult: SpeakingResult = {
+        overallScore,
+        fluencyScore: details.fluency || 0,
+        lexicalScore: details.vocabulary || details.lexical || 0,
+        grammarScore: details.grammar || 0,
+        pronunciationScore: details.pronunciation || 0,
+        partScores: [
+          { part: 1, score: details.fluency || 0 },
+          { part: 2, score: details.grammar || 0 },
+          { part: 3, score: details.pronunciation || 0 },
+        ],
+      };
+
+      setResult(formattedResult);
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching result:', err);
+      setError('Failed to load result');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const getScoreColor = (score: number) => {
@@ -61,6 +99,47 @@ export default function SpeakingResultScreen() {
   const handleBackToHome = () => {
     router.replace("/(tabs)" as any);
   };
+
+  if (loading) {
+    return (
+      <LinearGradient
+        colors={["#1E90FF", "#00BFFF", "#87CEEB"]}
+        style={styles.container}
+      >
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#FFF" />
+          <Text style={styles.loadingText}>Loading result...</Text>
+        </View>
+      </LinearGradient>
+    );
+  }
+
+  if (error || !result) {
+    return (
+      <LinearGradient
+        colors={["#1E90FF", "#00BFFF", "#87CEEB"]}
+        style={styles.container}
+      >
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error || 'Failed to load result'}</Text>
+          <TouchableOpacity
+            style={styles.retryButton}
+            onPress={fetchResult}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.backButtonError}
+            onPress={() => router.back()}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.backButtonErrorText}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </LinearGradient>
+    );
+  }
 
   return (
     <LinearGradient
@@ -366,6 +445,53 @@ const styles = StyleSheet.create({
     color: "#FFF",
     fontSize: 16,
     fontWeight: "600",
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingText: {
+    color: "#FFF",
+    fontSize: 16,
+    marginTop: 16,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 20,
+  },
+  errorText: {
+    color: "#FFF",
+    fontSize: 18,
+    fontWeight: "bold",
+    textAlign: "center",
+    marginBottom: 24,
+  },
+  retryButton: {
+    backgroundColor: "#FFF",
+    paddingHorizontal: 32,
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  retryButtonText: {
+    color: "#1E90FF",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  backButtonError: {
+    borderWidth: 2,
+    borderColor: "#FFF",
+    paddingHorizontal: 32,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  backButtonErrorText: {
+    color: "#FFF",
+    fontSize: 16,
+    fontWeight: "bold",
   },
   mascotContainer: {
     marginTop: 20,

@@ -11,7 +11,7 @@ interface OverallFeedbackProps {
       pronunciation: number;
       fluency: number;
       grammar: number;
-      lexical: number;
+      vocabulary: number;
     };
     congratulations: string;
     general_suggestions: string;
@@ -63,7 +63,7 @@ const PentagonChart: React.FC<PentagonChartProps> = ({ scores, overallScore }) =
             const radius = maxRadius * level;
             return `${centerX + radius * Math.cos(angle)},${centerY + radius * Math.sin(angle)}`;
           }).join(" ");
-          
+
           return (
             <Polygon
               key={idx}
@@ -136,7 +136,7 @@ const OverallFeedback: React.FC<OverallFeedbackProps> = ({ data }) => {
         <PentagonChart
           scores={[
             { label: "Fluency and\nCoherence", value: data.scores.fluency },
-            { label: "Lexical\nResource", value: data.scores.lexical },
+            { label: "Lexical\nResource", value: data.scores.vocabulary },
             { label: "Grammatical\nRange and\nAccuracy", value: data.scores.grammar },
             { label: "Pronunciation", value: data.scores.pronunciation },
             { label: "", value: data.score }, // Overall at top

@@ -141,7 +141,7 @@ export default function SpeakingFeedbackScreen() {
           pronunciation: feedback.details.pronunciation.score,
           fluency: feedback.details.fluency.score,
           grammar: feedback.details.grammar.score,
-          lexical: feedback.details.vocabulary.score,
+          vocabulary: feedback.details.vocabulary.score,
         },
         congratulations: "Great job on completing the test!",
         general_suggestions: feedback.general_suggestions.join(' '),

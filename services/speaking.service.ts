@@ -279,6 +279,52 @@ export const speakingService = {
     };
   },
 
+  async saveSpeakingFeedback(
+    userId: string,
+    part: number,
+    partId: number,
+    feedback: any
+  ) {
+    try {
+      console.log('[saveSpeakingFeedback] Saving feedback for user:', userId);
+
+      // Transform API response to match database schema
+      const detailsData = {
+        fluency: feedback.details.fluency.score,
+        pronunciation: feedback.details.pronunciation.score,
+        grammar: feedback.details.grammar.score,
+        vocabulary: feedback.details.vocabulary.score,
+      };
+
+      const generalSuggestions = feedback.general_suggestions || [];
+
+      const { data, error } = await supabase
+        .from('speaking_history')
+        .insert([
+          {
+            user_id: userId,
+            part: part,
+            part_id: partId,
+            overall_score: feedback.overall_score,
+            details: detailsData,
+            general_suggestions: generalSuggestions,
+          },
+        ])
+        .select();
+
+      if (error) {
+        console.error('[saveSpeakingFeedback] Error saving feedback:', error);
+        throw error;
+      }
+
+      console.log('[saveSpeakingFeedback] Feedback saved successfully:', data);
+      return data?.[0];
+    } catch (error) {
+      console.error('[saveSpeakingFeedback] Error:', error);
+      throw error;
+    }
+  },
+
   async submitSpeakingAudio(audioFilePath: string) {
     try {
       console.log('[submitSpeakingAudio] Audio path:', audioFilePath);
@@ -310,6 +356,10 @@ export const speakingService = {
         console.log('[submitSpeakingAudio] Sending to API...');
         const apiUrl = API_CONFIG.IELTS_SPEAKING_API;
         console.log('[submitSpeakingAudio] API URL:', apiUrl);
+
+        if (!apiUrl) {
+          throw new Error('API URL not configured');
+        }
 
         const apiResponse = await fetch(apiUrl, {
           method: 'POST',
@@ -348,6 +398,10 @@ export const speakingService = {
         });
 
         const apiUrl = API_CONFIG.IELTS_SPEAKING_API;
+        if (!apiUrl) {
+          throw new Error('API URL not configured');
+        }
+
         const apiResponse = await fetch(apiUrl, {
           method: 'POST',
           body: formData,
