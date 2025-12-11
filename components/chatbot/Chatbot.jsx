@@ -14,18 +14,27 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import { callDifyApi, getDifyFallbackResponse } from '@/services/dify.service';
+import { callGeminiApi, getGeminiFallbackResponse } from '@/services/gemini.service';
 
 const Chatbot = ({ onClose }) => {
     const [messages, setMessages] = useState([
         {
             id: 1,
-            text: 'Xin chào! Tôi là trợ lý học tiếng Anh của bạn. Tôi có thể giúp bạn học từ vựng, luyện nghe, nói, viết và còn nhiều hơn nữa. Bạn cần giúp gì?',
+            text: 'Xin chào! Tôi là trợ lý học tiếng Anh của bạn. Bạn muốn gì?',
             sender: 'bot',
             timestamp: new Date(),
+        },
+        {
+            id: 2,
+            text: 'Vui lòng chọn một trong các tùy chọn bên dưới:',
+            sender: 'bot',
+            timestamp: new Date(),
+            showOptions: true,
         },
     ]);
     const [inputText, setInputText] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
+    const [chatMode, setChatMode] = useState(null); // null, 'dify', or 'gemini'
 
     const scrollViewRef = useRef();
 
@@ -33,9 +42,44 @@ const Chatbot = ({ onClose }) => {
     const textColor = useThemeColor({}, 'text');
     const tintColor = useThemeColor({}, 'tint');
 
-    // Send message to Dify AI
+    // Xử lý lựa chọn mode
+    const handleModeSelection = (mode) => {
+        setChatMode(mode);
+
+        let confirmationText = '';
+        if (mode === 'dify') {
+            confirmationText = 'Bạn đã chọn: Tư vấn khóa học. Tôi sẽ giúp bạn tìm khóa học phù hợp nhất!';
+        } else if (mode === 'gemini') {
+            confirmationText = 'Bạn đã chọn: Hỏi đáp học tập. Tôi sẽ trả lời các câu hỏi về tiếng Anh của bạn!';
+        }
+
+        const confirmMessage = {
+            id: Date.now(),
+            text: confirmationText,
+            sender: 'bot',
+            timestamp: new Date(),
+        };
+
+        setMessages((prev) => [...prev, confirmMessage]);
+    };
+
+
+
+    // Send message to AI (Dify or Gemini)
     const sendMessage = async () => {
         if (inputText.trim() === '') return;
+
+        // Nếu chưa chọn mode, yêu cầu chọn
+        if (!chatMode) {
+            const warningMessage = {
+                id: Date.now(),
+                text: '⚠️ Vui lòng chọn một chế độ trước khi gửi tin nhắn.',
+                sender: 'bot',
+                timestamp: new Date(),
+            };
+            setMessages((prev) => [...prev, warningMessage]);
+            return;
+        }
 
         // Add user message
         const userMessage = {
@@ -51,8 +95,15 @@ const Chatbot = ({ onClose }) => {
         setIsProcessing(true);
 
         try {
-            // Call Dify API
-            const aiResponse = await callDifyApi(messageToProcess);
+            let aiResponse;
+
+            if (chatMode === 'dify') {
+                // Call Dify API
+                aiResponse = await callDifyApi(messageToProcess);
+            } else if (chatMode === 'gemini') {
+                // Call Gemini API
+                aiResponse = await callGeminiApi(messageToProcess);
+            }
 
             const aiMessage = {
                 id: Date.now() + 1,
@@ -64,7 +115,13 @@ const Chatbot = ({ onClose }) => {
             setMessages((prev) => [...prev, aiMessage]);
         } catch (error) {
             // Fallback response if API fails
-            const fallbackResponse = getDifyFallbackResponse();
+            let fallbackResponse;
+
+            if (chatMode === 'dify') {
+                fallbackResponse = getDifyFallbackResponse();
+            } else if (chatMode === 'gemini') {
+                fallbackResponse = getGeminiFallbackResponse();
+            }
 
             const aiMessage = {
                 id: Date.now() + 1,
@@ -140,6 +197,35 @@ const Chatbot = ({ onClose }) => {
                             minute: '2-digit',
                         })}
                     </Text>
+
+                    {/* Hiển thị nút tùy chọn */}
+                    {message.showOptions && !chatMode && (
+                        <View style={styles.optionsContainer}>
+                            <TouchableOpacity
+                                style={[
+                                    styles.optionButton,
+                                    { backgroundColor: '#42A5F5' },
+                                ]}
+                                onPress={() => handleModeSelection('dify')}
+                            >
+                                <Ionicons name="school" size={20} color="white" />
+                                <Text style={styles.optionText}>Tư vấn khóa học</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={[
+                                    styles.optionButton,
+                                    { backgroundColor: '#66BB6A' },
+                                ]}
+                                onPress={() => handleModeSelection('gemini')}
+                            >
+                                <Ionicons name="help-circle" size={20} color="white" />
+                                <Text style={styles.optionText}>Hỏi đáp học tập</Text>
+                            </TouchableOpacity>
+                        </View>
+                    )}
+
+
                 </View>
 
                 {!isBot && (
@@ -255,7 +341,7 @@ const Chatbot = ({ onClose }) => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#FFFFFF', 
+        backgroundColor: '#FFFFFF',
     },
 
     // Header styles
@@ -265,7 +351,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        backgroundColor: '#2196F3', 
+        backgroundColor: '#2196F3',
         borderBottomWidth: 1,
         borderBottomColor: '#E3F2FD',
     },
@@ -335,7 +421,7 @@ const styles = StyleSheet.create({
         width: 32,
         height: 32,
         borderRadius: 16,
-        backgroundColor: '#FFFFFF', 
+        backgroundColor: '#FFFFFF',
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -381,6 +467,25 @@ const styles = StyleSheet.create({
     timestamp: {
         fontSize: 11,
         marginTop: 4,
+    },
+
+    // Options container
+    optionsContainer: {
+        marginTop: 12,
+        gap: 8,
+    },
+    optionButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        borderRadius: 8,
+        gap: 8,
+    },
+    optionText: {
+        color: 'white',
+        fontSize: 13,
+        fontWeight: '600',
     },
 
     // Loading indicator
