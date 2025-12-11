@@ -10,7 +10,7 @@ import { useAuth } from "../../contexts/AuthContext";
 const BREAK_TIME = 10;
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
-import { Pause, Volume2, X } from "lucide-react-native";
+import { Pause, Volume2, X, ChevronRight } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import {
   Alert,
@@ -56,7 +56,6 @@ export default function SpeakingRoom() {
   // Recording state (for backend integration)
   const [recordingUri, setRecordingUri] = useState<string | null>(null);
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
-  const [androidPermissionUri, setAndroidPermissionUri] = useState<string | null>(null);
   const [apiFeedback, setApiFeedback] = useState<any>(null);
   const [isRecordingUnloaded, setIsRecordingUnloaded] = useState(false);
   const [isScoring, setIsScoring] = useState(false);
@@ -139,8 +138,18 @@ export default function SpeakingRoom() {
       interval = setInterval(() => {
         setSpeakTimeLeft((prev) => {
           if (prev <= 1) {
-            // Auto stop recording when time is up
-            pauseRecording();
+            // Check if there are more questions in the same part
+            const hasMoreQuestionsInSamePart =
+              currentQuestionIndex < questions.length - 1 &&
+              questions[currentQuestionIndex + 1]?.part === currentQuestion.part;
+
+            if (hasMoreQuestionsInSamePart) {
+              // Don't pause recording - just change state to 'finished'
+              setRoomState("finished");
+            } else {
+              // Last question in part or test - pause the recording
+              pauseRecording();
+            }
             return 0;
           }
           return prev - 1;
@@ -151,7 +160,7 @@ export default function SpeakingRoom() {
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [roomState, prepTimeLeft, speakTimeLeft, breakTimeLeft]);
+  }, [roomState, prepTimeLeft, speakTimeLeft, breakTimeLeft, currentQuestionIndex, questions, currentQuestion.part]);
 
   if (isLoading) {
     return (
@@ -185,6 +194,16 @@ export default function SpeakingRoom() {
    */
   const playAudio = async () => {
     try {
+      // Pause recording if it's currently active (for questions 2, 3, etc in same part)
+      // We don't want to record the question audio
+      if (recording) {
+        const status = await recording.getStatusAsync();
+        if (status.isRecording) {
+          console.log("Pausing recording while playing question audio...");
+          await recording.pauseAsync();
+        }
+      }
+
       setIsAudioPlaying(true);
       setRoomState("playing-audio");
 
@@ -251,8 +270,25 @@ export default function SpeakingRoom() {
         });
 
         if (recording) {
-          console.log("Resuming recording..");
-          await recording.startAsync();
+          // Check recording status before attempting to start
+          const status = await recording.getStatusAsync();
+          console.log("Existing recording status:", status);
+
+          if (status.isRecording) {
+            // Already recording - just update the UI state and timer
+            console.log("Recording already active, continuing...");
+          } else if (status.isDoneRecording) {
+            // Recording was stopped, need to create a new one
+            console.log("Previous recording done, creating new recording..");
+            const { recording: newRecording } = await Audio.Recording.createAsync(
+              Audio.RecordingOptionsPresets.HIGH_QUALITY
+            );
+            setRecording(newRecording);
+          } else {
+            // Recording exists but paused - resume it
+            console.log("Resuming paused recording..");
+            await recording.startAsync();
+          }
         } else {
           console.log("Starting new recording..");
           const { recording: newRecording } = await Audio.Recording.createAsync(
@@ -290,6 +326,8 @@ export default function SpeakingRoom() {
       console.error("Error pausing recording:", error);
     }
   };
+
+
 
   /**
    * Save the recording
@@ -377,45 +415,6 @@ export default function SpeakingRoom() {
           Alert.alert("API Error", "Failed to process recording. Please try again.");
           return null;
         }
-
-        // Save or share the file based on platform (skip web)
-        if (Platform.OS === "android") {
-          try {
-            let directoryUri = androidPermissionUri;
-
-            // If we don't have permission yet, ask for it
-            if (!directoryUri) {
-              const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
-              if (permissions.granted) {
-                directoryUri = (permissions as any).directoryUri || null;
-                if (directoryUri) {
-                  setAndroidPermissionUri(directoryUri);
-                }
-              } else {
-                Alert.alert("Permission denied", "Cannot save recording without folder permission.");
-                return;
-              }
-            }
-
-            if (directoryUri) {
-              const base64 = await FileSystem.readAsStringAsync(newPath, { encoding: FileSystem.EncodingType.Base64 });
-              const createdUri = await FileSystem.StorageAccessFramework.createFileAsync(directoryUri as string, fileName, 'audio/mp4');
-              await FileSystem.writeAsStringAsync(createdUri, base64, { encoding: FileSystem.EncodingType.Base64 });
-              Alert.alert("Success", "Recording saved successfully!");
-            }
-          } catch (e) {
-            console.error("Error saving file:", e);
-            Alert.alert("Error", "Failed to save recording.");
-            // Reset permission if it failed, might need to re-ask
-            setAndroidPermissionUri(null);
-          }
-        } else if (Platform.OS === "ios") {
-          // iOS
-          if (await Sharing.isAvailableAsync()) {
-            await Sharing.shareAsync(newPath);
-          }
-        }
-        // Web: Skip file sharing for blob URIs
       }
 
       // Reset recording
@@ -435,6 +434,9 @@ export default function SpeakingRoom() {
 
       // Check if entering a new part
       if (currentQuestion.part !== nextQuestion.part) {
+        // Pause recording when changing parts
+        await pauseRecording();
+
         // Only save intermediate recordings in practice mode
         if (mode === "practice") {
           await saveRecording(false);
@@ -445,16 +447,19 @@ export default function SpeakingRoom() {
         setBreakTimeLeft(BREAK_TIME);
         setShowBreakModal(true); // Show modal to hide next part content
       } else {
+        // Same part - DON'T pause recording, just move to next question
+        // Recording continues across questions in the same part
         setCurrentQuestionIndex(nextIndex);
         setRoomState("idle");
       }
 
-      // Reset states
+      // Reset states (but keep recording active if still in same part)
       setPrepTimeLeft(0);
       setSpeakTimeLeft(0);
-      setRecordingUri(null);
+      // Don't reset recordingUri - we're building one continuous recording
     } else {
-      // End of test - save recording (full test or last part)
+      // End of test - pause and save recording (full test or last part)
+      await pauseRecording();
       const recordingFeedback = await saveRecording(true);
 
       // Navigate to results with feedback
@@ -577,6 +582,19 @@ export default function SpeakingRoom() {
               <View style={styles.timerBox}>
                 <Text style={styles.timerLabel}>Preparation time</Text>
                 <Text style={styles.timerValue}>{formatTime(prepTimeLeft)}</Text>
+                {/* Next button for Part 2 - allows user to skip preparation when ready (only in practice mode) */}
+                {mode === "practice" && (
+                  <TouchableOpacity
+                    style={styles.skipNextButton}
+                    onPress={() => {
+                      setPrepTimeLeft(0);
+                      startRecording();
+                    }}
+                  >
+                    <Text style={styles.skipNextButtonText}>Start Speaking</Text>
+                    <ChevronRight size={20} color="#FFFFFF" />
+                  </TouchableOpacity>
+                )}
               </View>
             )}
 
@@ -584,6 +602,33 @@ export default function SpeakingRoom() {
               <View style={styles.timerBox}>
                 <Text style={styles.timerLabel}>Time remaining</Text>
                 <Text style={styles.timerValue}>{formatTime(speakTimeLeft)}</Text>
+                {/* Next button - allows user to skip to next question when done answering (only in practice mode) */}
+                {mode === "practice" && (
+                  <TouchableOpacity
+                    style={styles.skipNextButton}
+                    onPress={async () => {
+                      // Check if moving to next question in same part or different part
+                      const isLastQuestion = currentQuestionIndex >= questions.length - 1;
+                      const isChangingPart = !isLastQuestion &&
+                        questions[currentQuestionIndex + 1]?.part !== currentQuestion.part;
+
+                      // Only pause if last question or changing parts
+                      if (isLastQuestion || isChangingPart) {
+                        await pauseRecording();
+                      }
+
+                      // Small delay to ensure state updates
+                      setTimeout(() => {
+                        handleNextQuestion();
+                      }, 100);
+                    }}
+                  >
+                    <Text style={styles.skipNextButtonText}>
+                      {currentQuestionIndex < questions.length - 1 ? "Next" : "Finish"}
+                    </Text>
+                    <ChevronRight size={20} color="#FFFFFF" />
+                  </TouchableOpacity>
+                )}
               </View>
             )}
 
@@ -795,6 +840,24 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "bold",
     color: "#1E90FF",
+  },
+  skipNextButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.3)",
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.5)",
+  },
+  skipNextButtonText: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#FFFFFF",
+    marginRight: 4,
   },
   bottomSection: {
     backgroundColor: "#FFFFFF",
