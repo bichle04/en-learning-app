@@ -9,12 +9,13 @@ import {
     KeyboardAvoidingView,
     Platform,
     ActivityIndicator,
+    Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import { callDifyApi, getDifyFallbackResponse } from '@/services/dify.service';
 
-const Chatbot = () => {
+const Chatbot = ({ onClose }) => {
     const [messages, setMessages] = useState([
         {
             id: 1,
@@ -98,8 +99,12 @@ const Chatbot = () => {
             >
                 {isBot && (
                     <View style={styles.botAvatarContainer}>
-                        <View style={[styles.botAvatar, { backgroundColor: tintColor }]}>
-                            <Ionicons name="chatbubble" size={20} color="white" />
+                        <View style={styles.botAvatar}>
+                            <Image
+                                source={require('@/assets/images/chatbot.png')}
+                                style={styles.botAvatarImage}
+                                resizeMode="contain"
+                            />
                         </View>
                     </View>
                 )}
@@ -108,15 +113,15 @@ const Chatbot = () => {
                     style={[
                         styles.messageBubble,
                         isBot
-                            ? [styles.botBubble, { backgroundColor: '#f0f0f0' }]
-                            : [styles.userBubble, { backgroundColor: tintColor }],
+                            ? [styles.botBubble, { backgroundColor: '#F5F7FA' }]
+                            : [styles.userBubble, { backgroundColor: '#E3F2FD' }],
                     ]}
                 >
                     <Text
                         style={[
                             styles.messageText,
                             {
-                                color: isBot ? '#333' : 'white',
+                                color: isBot ? '#2C3E50' : '#1565C0',
                             },
                         ]}
                     >
@@ -126,7 +131,7 @@ const Chatbot = () => {
                         style={[
                             styles.timestamp,
                             {
-                                color: isBot ? '#999' : 'rgba(255,255,255,0.7)',
+                                color: isBot ? '#95A5A6' : '#7B8794',
                             },
                         ]}
                     >
@@ -139,7 +144,7 @@ const Chatbot = () => {
 
                 {!isBot && (
                     <View style={styles.userAvatarContainer}>
-                        <View style={[styles.userAvatar, { backgroundColor: tintColor }]}>
+                        <View style={[styles.userAvatar, { backgroundColor: '#90CAF9' }]}>
                             <Ionicons name="person" size={20} color="white" />
                         </View>
                     </View>
@@ -151,23 +156,27 @@ const Chatbot = () => {
     return (
         <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={[styles.container, { backgroundColor }]}
+            style={styles.container}
         >
             {/* Header */}
-            <View style={[styles.header, { borderBottomColor: '#e0e0e0' }]}>
+            <View style={styles.header}>
                 <View style={styles.headerContent}>
-                    <View style={[styles.headerAvatar, { backgroundColor: tintColor }]}>
-                        <Ionicons name="chatbubbles" size={24} color="white" />
+                    <View style={styles.headerAvatar}>
+                        <Image
+                            source={require('@/assets/images/chatbot.png')}
+                            style={styles.headerAvatarImage}
+                            resizeMode="contain"
+                        />
                     </View>
                     <View style={styles.headerInfo}>
-                        <Text style={[styles.headerTitle, { color: textColor }]}>
+                        <Text style={styles.headerTitle}>
                             Trợ lý học tiếng Anh
                         </Text>
                         <Text style={styles.headerStatus}>Luôn sẵn sàng giúp bạn</Text>
                     </View>
                 </View>
-                <TouchableOpacity>
-                    <Ionicons name="ellipsis-vertical" size={24} color={textColor} />
+                <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+                    <Ionicons name="close" size={28} color="#FFFFFF" />
                 </TouchableOpacity>
             </View>
 
@@ -199,7 +208,7 @@ const Chatbot = () => {
                         style={[
                             styles.input,
                             {
-                                color: textColor,
+                                color: '#000000', // Màu đen rõ ràng cho text
                                 borderColor: '#e0e0e0',
                             },
                         ]}
@@ -229,7 +238,7 @@ const Chatbot = () => {
                         style={[
                             styles.sendButton,
                             {
-                                backgroundColor: isProcessing ? '#ccc' : '#FF6B9D',
+                                backgroundColor: isProcessing ? '#ccc' : '#1E90FF', // Màu xanh từ Speaking UI
                             },
                         ]}
                         onPress={sendMessage}
@@ -246,6 +255,7 @@ const Chatbot = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+        backgroundColor: '#FFFFFF', 
     },
 
     // Header styles
@@ -255,7 +265,9 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
+        backgroundColor: '#2196F3', 
         borderBottomWidth: 1,
+        borderBottomColor: '#E3F2FD',
     },
     headerContent: {
         flexDirection: 'row',
@@ -266,9 +278,14 @@ const styles = StyleSheet.create({
         width: 48,
         height: 48,
         borderRadius: 24,
+        backgroundColor: '#FFFFFF',
         justifyContent: 'center',
         alignItems: 'center',
         marginRight: 12,
+    },
+    headerAvatarImage: {
+        width: 32,
+        height: 32,
     },
     headerInfo: {
         flex: 1,
@@ -277,10 +294,16 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: '600',
         marginBottom: 2,
+        color: '#FFFFFF',
+    },
+    closeButton: {
+        padding: 8,
+        borderRadius: 20,
+        backgroundColor: 'rgba(255, 255, 255, 0.2)',
     },
     headerStatus: {
         fontSize: 12,
-        color: '#999',
+        color: 'rgba(255, 255, 255, 0.8)',
     },
 
     // Messages container
@@ -312,8 +335,13 @@ const styles = StyleSheet.create({
         width: 32,
         height: 32,
         borderRadius: 16,
+        backgroundColor: '#FFFFFF', 
         justifyContent: 'center',
         alignItems: 'center',
+    },
+    botAvatarImage: {
+        width: 24,
+        height: 24,
     },
     userAvatar: {
         width: 32,
@@ -327,12 +355,24 @@ const styles = StyleSheet.create({
         paddingHorizontal: 12,
         paddingVertical: 10,
         borderRadius: 16,
+        shadowColor: '#000',
+        shadowOffset: {
+            width: 0,
+            height: 1,
+        },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+        elevation: 2,
     },
     botBubble: {
         borderBottomLeftRadius: 4,
+        borderWidth: 0.5,
+        borderColor: '#DDE7F0',
     },
     userBubble: {
         borderBottomRightRadius: 4,
+        borderWidth: 0.5,
+        borderColor: '#BBDEFB',
     },
     messageText: {
         fontSize: 14,
