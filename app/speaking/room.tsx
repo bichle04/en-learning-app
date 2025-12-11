@@ -5,6 +5,7 @@ import { Audio } from "expo-av";
 import * as FileSystem from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import ScoringModal from "../../components/speaking/ScoringModal";
+import { useAuth } from "../../contexts/AuthContext";
 
 const BREAK_TIME = 10;
 import { LinearGradient } from "expo-linear-gradient";
@@ -38,6 +39,7 @@ export default function SpeakingRoom() {
   const params = useLocalSearchParams();
   const mode = params.mode as "practice" | "test";
   const topicId = params.topicId as string;
+  const { user } = useAuth();
 
   // State management
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -58,6 +60,7 @@ export default function SpeakingRoom() {
   const [apiFeedback, setApiFeedback] = useState<any>(null);
   const [isRecordingUnloaded, setIsRecordingUnloaded] = useState(false);
   const [isScoring, setIsScoring] = useState(false);
+  const [scoringStatus, setScoringStatus] = useState<'analyzing' | 'success' | 'error'>('analyzing');
 
   // Get questions based on mode
   const [questions, setQuestions] = useState<SpeakingQuestion[]>([]);
@@ -291,7 +294,7 @@ export default function SpeakingRoom() {
   /**
    * Save the recording
    */
-  const saveRecording = async () => {
+  const saveRecording = async (isFinal: boolean = true) => {
     console.log("Saving recording..");
     if (!recording) return null;
 
@@ -334,11 +337,39 @@ export default function SpeakingRoom() {
         console.log("Sending recording to API...");
         try {
           setIsScoring(true);
+          setScoringStatus('analyzing');
           const feedback = await speakingService.submitSpeakingAudio(newPath);
           console.log("Feedback received from API:", feedback);
           setApiFeedback(feedback); // Store feedback for later use
+
+          // Save feedback to database if user is logged in
+          if (user?.id) {
+            try {
+              console.log("Saving feedback to database for user:", user.id);
+              const firstQuestion = questions[0];
+              const partNumber = currentQuestion.part;
+              const partId = firstQuestion?.topicId ? parseInt(firstQuestion.topicId) : 1;
+
+              await speakingService.saveSpeakingFeedback(
+                user.id,
+                partNumber,
+                partId,
+                feedback
+              );
+              console.log("Feedback saved to database successfully");
+            } catch (dbError) {
+              console.error("Error saving feedback to database:", dbError);
+              // Continue anyway - API feedback is still available
+            }
+          }
+
+          if (isFinal) {
+            setScoringStatus('success');
+            // Wait for 2 seconds to show success message
+            await new Promise(resolve => setTimeout(resolve, 2000));
+          }
+
           setIsScoring(false);
-          Alert.alert("Success", "Recording processed successfully!");
           return feedback; // Return feedback for immediate use
         } catch (apiError) {
           setIsScoring(false);
@@ -356,8 +387,10 @@ export default function SpeakingRoom() {
             if (!directoryUri) {
               const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
               if (permissions.granted) {
-                directoryUri = permissions.directoryUri;
-                setAndroidPermissionUri(directoryUri);
+                directoryUri = (permissions as any).directoryUri || null;
+                if (directoryUri) {
+                  setAndroidPermissionUri(directoryUri);
+                }
               } else {
                 Alert.alert("Permission denied", "Cannot save recording without folder permission.");
                 return;
@@ -366,7 +399,7 @@ export default function SpeakingRoom() {
 
             if (directoryUri) {
               const base64 = await FileSystem.readAsStringAsync(newPath, { encoding: FileSystem.EncodingType.Base64 });
-              const createdUri = await FileSystem.StorageAccessFramework.createFileAsync(directoryUri, fileName, 'audio/mp4');
+              const createdUri = await FileSystem.StorageAccessFramework.createFileAsync(directoryUri as string, fileName, 'audio/mp4');
               await FileSystem.writeAsStringAsync(createdUri, base64, { encoding: FileSystem.EncodingType.Base64 });
               Alert.alert("Success", "Recording saved successfully!");
             }
@@ -404,7 +437,7 @@ export default function SpeakingRoom() {
       if (currentQuestion.part !== nextQuestion.part) {
         // Only save intermediate recordings in practice mode
         if (mode === "practice") {
-          await saveRecording();
+          await saveRecording(false);
         }
 
         setCurrentQuestionIndex(nextIndex);
@@ -422,19 +455,19 @@ export default function SpeakingRoom() {
       setRecordingUri(null);
     } else {
       // End of test - save recording (full test or last part)
-      const recordingFeedback = await saveRecording();
+      const recordingFeedback = await saveRecording(true);
 
       // Navigate to results with feedback
       if (recordingFeedback) {
         router.push({
-          pathname: "/speaking/feedback",
+          pathname: "/speaking/result",
           params: {
             feedback: JSON.stringify(recordingFeedback)
           }
         } as any);
       } else {
         // Fallback if no feedback
-        router.push("/speaking/feedback" as any);
+        router.push("/speaking/result" as any);
       }
     }
   };
@@ -592,7 +625,7 @@ export default function SpeakingRoom() {
       </LinearGradient>
 
       {/* Scoring Modal Component */}
-      <ScoringModal visible={isScoring} />
+      <ScoringModal visible={isScoring} status={scoringStatus} />
 
       {/* Break Time Modal - Covers the screen to hide next part content */}
       <Modal

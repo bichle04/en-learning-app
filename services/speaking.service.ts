@@ -279,6 +279,75 @@ export const speakingService = {
     };
   },
 
+  async saveSpeakingFeedback(
+    userId: string,
+    part: number,
+    partId: number,
+    feedback: any
+  ) {
+    try {
+      console.log('[saveSpeakingFeedback] Saving feedback for user:', userId);
+
+      // Save complete API response with all details
+      const detailsData = {
+        overall_score: feedback.overall_score,
+        transcript: feedback.transcript,
+        fluency: {
+          score: feedback.details.fluency.score,
+          evaluation: feedback.details.fluency.evaluation,
+          errors: feedback.details.fluency.errors,
+          feedback: feedback.details.fluency.feedback,
+          wpm: feedback.details.fluency.wpm,
+        },
+        pronunciation: {
+          score: feedback.details.pronunciation.score,
+          evaluation: feedback.details.pronunciation.evaluation,
+          errors: feedback.details.pronunciation.errors,
+          feedback: feedback.details.pronunciation.feedback,
+        },
+        grammar: {
+          score: feedback.details.grammar.score,
+          evaluation: feedback.details.grammar.evaluation,
+          errors: feedback.details.grammar.errors,
+          feedback: feedback.details.grammar.feedback,
+        },
+        vocabulary: {
+          score: feedback.details.vocabulary.score,
+          evaluation: feedback.details.vocabulary.evaluation,
+          errors: feedback.details.vocabulary.errors,
+          feedback: feedback.details.vocabulary.feedback,
+        },
+      };
+
+      const generalSuggestions = feedback.general_suggestions || [];
+
+      const { data, error } = await supabase
+        .from('speaking_history')
+        .insert([
+          {
+            user_id: userId,
+            part: part,
+            part_id: partId,
+            overall_score: feedback.overall_score,
+            details: detailsData,
+            general_suggestions: generalSuggestions,
+          },
+        ])
+        .select();
+
+      if (error) {
+        console.error('[saveSpeakingFeedback] Error saving feedback:', error);
+        throw error;
+      }
+
+      console.log('[saveSpeakingFeedback] Feedback saved successfully:', data);
+      return data?.[0];
+    } catch (error) {
+      console.error('[saveSpeakingFeedback] Error:', error);
+      throw error;
+    }
+  },
+
   async submitSpeakingAudio(audioFilePath: string) {
     try {
       console.log('[submitSpeakingAudio] Audio path:', audioFilePath);
@@ -310,6 +379,10 @@ export const speakingService = {
         console.log('[submitSpeakingAudio] Sending to API...');
         const apiUrl = API_CONFIG.IELTS_SPEAKING_API;
         console.log('[submitSpeakingAudio] API URL:', apiUrl);
+
+        if (!apiUrl) {
+          throw new Error('API URL not configured');
+        }
 
         const apiResponse = await fetch(apiUrl, {
           method: 'POST',
@@ -348,6 +421,10 @@ export const speakingService = {
         });
 
         const apiUrl = API_CONFIG.IELTS_SPEAKING_API;
+        if (!apiUrl) {
+          throw new Error('API URL not configured');
+        }
+
         const apiResponse = await fetch(apiUrl, {
           method: 'POST',
           body: formData,
