@@ -42,7 +42,7 @@ export default function TabLayout() {
         <Tabs.Screen
           name="courses"
           options={{
-            title: "Courses",
+            title: "Exercises",
             tabBarIcon: ({ size, color }) => (
               <BookOpen size={size} color={color} />
             ),
@@ -51,7 +51,7 @@ export default function TabLayout() {
         <Tabs.Screen
           name="notebook"
           options={{
-            title: "Notebook",
+            title: "Vocabulary",
             tabBarIcon: ({ size, color }) => (
               <NotebookPen size={size} color={color} />
             ),

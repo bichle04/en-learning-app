@@ -130,7 +130,7 @@ export default function HomeScreen() {
             onPress={navigateToCourses}
           >
             <Text style={styles.quickActionIcon}>📚</Text>
-            <Text style={styles.quickActionText}>Browse Courses</Text>
+            <Text style={styles.quickActionText}>Exercises</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
